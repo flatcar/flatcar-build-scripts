@@ -1,0 +1,102 @@
+#!/bin/bash
+#
+# This script synchronizes storage buckets, from local to remote or vice versa,
+# making use of rclone, https://github.com/ncw/rclone.
+#
+# By default this script syncs from local directory to the remote Google Cloud.
+#
+#  $ sync-rclone
+#
+# In case of recovery mode, i.e. ${RECOVER_MODE} being set to 1, it will sync
+# from remote to local.
+#
+#  $ RECOVER_MODE=1 sync-rclone
+#
+# Set custom GCS configs, e.g.:
+#
+#  $ GCS_PROJECT_NUMBER=987654321098 sync-rclone
+#  $ GCS_SERVICE_ACCOUNT_CONFIG=/tmp/sa.json sync-rclone
+#  $ LOCAL_REPO=/tmp/some-dir REMOTE_REPO=gcs:otherproj sync-rclone
+#
+
+set -euo pipefail
+
+RECOVER_MODE="${RECOVER_MODE:-0}"
+RCLONE_CONFIGDIR="$HOME/.config/rclone"
+LOCAL_REPO="${LOCAL_REPO:-/var/www/origin.release.flatcar-linux.net}"
+REMOTE_REPO="${REMOTE_REPO:-gcs:flatcar}" # TODO: check if it's valid
+GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-012345678901}"  # NOTE: please fill in a valid project number
+GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
+
+function pushd {
+    command pushd "$@" > /dev/null
+}
+
+function popd {
+    command popd > /dev/null
+}
+
+function install_rclone {
+    local RCLONE_DESTDIR="/opt/bin"
+
+    pushd /tmp
+    curl https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone-current-linux-amd64.zip
+    unzip rclone-current-linux-amd64.zip
+
+    pushd rclone-*-linux-amd64
+    mkdir --parents ${RCLONE_DESTDIR}
+    sudo cp rclone ${RCLONE_DESTDIR}/rclone
+    sudo chown root:root ${RCLONE_DESTDIR}/rclone
+    sudo chmod 755 ${RCLONE_DESTDIR}/rclone
+    popd
+
+    rm -rf /tmp/rclone-*-linux-amd64*
+    popd
+}
+
+function gen_rclone_config {
+    # Please fill in below a valid project_number to be able to configure
+    # Google Cloud storage.
+    # Also service_account_file needs to be a path to a valid json file
+    # downloaded from the console of Google Cloud.
+    # See also https://rclone.org/googlecloudstorage.
+
+    mkdir --parents "${RCLONE_CONFIGDIR}"
+
+    tee "${RCLONE_CONFIGDIR}/rclone.conf" << EOF
+[gcs]
+type = google cloud storage
+client_id = 
+client_secret = 
+project_number = ${GCS_PROJECT_NUMBER}
+service_account_file = ${GCS_SERVICE_ACCOUNT_CONFIG}
+object_acl = bucketOwnerFullControl
+bucket_acl = authenticatedRead
+location = eu
+storage_class = 
+token = 
+EOF
+}
+
+if ! which rclone >/dev/null 2>&1; then
+    install_rclone
+fi
+
+if [[ ! -f "${RCLONE_CONFIGDIR}/rclone.conf" ]]; then
+    gen_rclone_config
+fi
+
+if [[ "${RECOVER_MODE}" -ne 0 ]]; then
+    echo "recovery mode. syncing from remote to local."
+
+    # sync from remote to local
+    rclone sync --verbose "${REMOTE_REPO}" "${LOCAL_REPO}"
+    RET=$?
+    exit ${RET}
+fi
+
+# normal mode. sync from local to remote
+rclone sync --verbose "${LOCAL_REPO}" "${REMOTE_REPO}"
+RET=$?
+
+exit ${RET}
