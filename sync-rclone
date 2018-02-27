@@ -28,6 +28,9 @@ REMOTE_REPO="${REMOTE_REPO:-gcs:flatcar}" # TODO: check if it's valid
 GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-012345678901}"  # NOTE: please fill in a valid project number
 GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
 
+TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+RCLONE_OPTIONS="--verbose --backup-dir=${REMOTE_REPO}-backup-${TIMESTAMP}"
+
 function pushd {
     command pushd "$@" > /dev/null
 }
@@ -40,7 +43,7 @@ function install_rclone {
     local RCLONE_DESTDIR="/opt/bin"
 
     pushd /tmp
-    curl https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone-current-linux-amd64.zip
+    curl -L --progress https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone-current-linux-amd64.zip
     unzip rclone-current-linux-amd64.zip
 
     pushd rclone-*-linux-amd64
@@ -90,13 +93,13 @@ if [[ "${RECOVER_MODE}" -ne 0 ]]; then
     echo "recovery mode. syncing from remote to local."
 
     # sync from remote to local
-    rclone sync --verbose "${REMOTE_REPO}" "${LOCAL_REPO}"
+    rclone sync ${RCLONE_OPTIONS} "${REMOTE_REPO}" "${LOCAL_REPO}"
     RET=$?
     exit ${RET}
 fi
 
 # normal mode. sync from local to remote
-rclone sync --verbose "${LOCAL_REPO}" "${REMOTE_REPO}"
+rclone sync ${RCLONE_OPTIONS} "${LOCAL_REPO}" "${REMOTE_REPO}"
 RET=$?
 
 exit ${RET}
