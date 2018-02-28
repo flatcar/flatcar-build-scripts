@@ -28,7 +28,7 @@ LOCAL_REPO="${LOCAL_REPO:-/var/www/origin.release.flatcar-linux.net}"
 # NOTE: it needs to be a format of REPO_NAME:BUCKET_NAME
 REMOTE_REPO="${REMOTE_REPO:-gcs:jenkins-flatcar}"
 
-GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-012345678901}"  # NOTE: please fill in a valid project number
+GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-5257126083}"  # NOTE: please fill in a valid project number
 GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
 
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
