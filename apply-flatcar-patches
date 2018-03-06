@@ -1,0 +1,217 @@
+#!/bin/bash
+#
+# This script applies our Flatcar patchset on top of a Container Linux
+# release.
+
+set -euo pipefail
+
+pushd() {
+  command pushd "$@" >/dev/null
+}
+
+popd() {
+  command popd >/dev/null
+}
+
+function get_repo_paths() {
+  INPUT_XMLFILE=$1
+  if [[ ! -f "${INPUT_XMLFILE}" ]]; then
+    echo "error: no such file ${INPUT_XMLFILE}"
+    return
+  fi
+
+  local repo_paths
+  mapfile -t repo_paths < <(xmllint --xpath '//project/@path' "${INPUT_XMLFILE}" | grep -Po '".*?"' | tr -d \")
+  # How to return arrays in bash? https://stackoverflow.com/a/16843375
+  declare -p repo_paths | sed -e 's/^declare -a repo_paths=//'
+}
+
+function get_repo_revisions() {
+  INPUT_XMLFILE=$1
+  if [[ ! -f "${INPUT_XMLFILE}" ]]; then
+    echo "error: no such file ${INPUT_XMLFILE}"
+    return
+  fi
+
+  local repo_revisions
+  mapfile -t repo_revisions < <(xmllint --xpath '//project/@revision' "${INPUT_XMLFILE}" | grep -Po '".*?"' | tr -d \")
+  # How to return arrays in bash? https://stackoverflow.com/a/16843375
+  declare -p repo_revisions | sed -e 's/^declare -a repo_revisions=//'
+}
+
+if [ $# -gt 0 ]; then
+  BUILD_ID=$1
+else
+  # Default to latest alpha
+  BUILD_ID=$(curl -s https://coreos.com/releases/releases-alpha.json | jq -r '(to_entries | map(.key))[0]')
+fi
+
+REPOS="${PWD}/repos"
+
+echo "Creating repos under ${REPOS} ..."
+
+MANIFEST="${PWD}/$(basename "${REPOS}").xml"
+
+# Sync upstream repos with tag $BUILD_ID
+mkdir --parents "${REPOS}"
+pushd "${REPOS}"
+echo "${PWD}"
+repo init --manifest-branch=refs/tags/v"${BUILD_ID}" --manifest-url=https://github.com/coreos/manifest -m release.xml
+repo sync --detach --force-sync
+repo manifest -r -o "${MANIFEST}"
+popd
+
+BUILD_BRANCH=build-"${BUILD_ID}"
+
+pushd "${REPOS}"/.repo/manifests
+git remote add fl git@github.com:flatcar-linux/manifest.git || true
+if git rev-parse --verify "${BUILD_BRANCH}"; then
+  git checkout "${BUILD_BRANCH}"
+  git reset --hard "v${BUILD_ID}"
+else
+  git checkout -b "${BUILD_BRANCH}"
+fi
+popd
+
+REPOPATHS_STRING=$(get_repo_paths "${MANIFEST}")
+eval "declare -a REPOPATHS=${REPOPATHS_STRING}"
+REPOREVS_STRING=$(get_repo_revisions "${MANIFEST}")
+eval "declare -a REPOREVS=${REPOREVS_STRING}"
+
+# repo-path -> ebuild-path
+declare -A EBUILD_PATHS
+EBUILD_PATHS[src/third_party/sdnotify-proxy]=src/third_party/coreos-overlay/app-admin/sdnotify-proxy/sdnotify-proxy-9999.ebuild
+EBUILD_PATHS[src/third_party/locksmith]=src/third_party/coreos-overlay/app-admin/locksmith/locksmith-9999.ebuild
+EBUILD_PATHS[src/third_party/updateservicectl]=src/third_party/coreos-overlay/app-admin/updateservicectl/updateservicectl-9999.ebuild
+EBUILD_PATHS[src/third_party/toolbox]=src/third_party/coreos-overlay/app-admin/toolbox/toolbox-9999.ebuild
+EBUILD_PATHS[src/third_party/mayday]=src/third_party/coreos-overlay/app-admin/mayday/mayday-9999.ebuild
+EBUILD_PATHS[src/third_party/ignition]=src/third_party/coreos-overlay/sys-apps/ignition/ignition-9999.ebuild
+EBUILD_PATHS[src/third_party/systemd]=src/third_party/coreos-overlay/sys-apps/systemd/systemd-9999.ebuild
+EBUILD_PATHS[src/third_party/seismograph]=src/third_party/coreos-overlay/sys-apps/seismograph/seismograph-9999.ebuild
+EBUILD_PATHS[src/third_party/baselayout]=src/third_party/coreos-overlay/sys-apps/baselayout/baselayout-9999.ebuild
+EBUILD_PATHS[src/third_party/grub]=src/third_party/coreos-overlay/sys-boot/grub/grub-9999.ebuild
+EBUILD_PATHS[src/third_party/shim]=src/third_party/coreos-overlay/sys-boot/shim/shim-9999.ebuild
+EBUILD_PATHS[src/third_party/mantle]=src/third_party/coreos-overlay/coreos-devel/mantle/mantle-9999.ebuild
+EBUILD_PATHS[src/third_party/bootengine]=src/third_party/coreos-overlay/sys-kernel/bootengine/bootengine-9999.ebuild
+EBUILD_PATHS[src/third_party/coreos-cloudinit]=src/third_party/coreos-overlay/coreos-base/coreos-cloudinit/coreos-cloudinit-9999.ebuild
+EBUILD_PATHS[src/third_party/coreos-metadata]=src/third_party/coreos-overlay/coreos-base/coreos-metadata/coreos-metadata-9999.ebuild
+EBUILD_PATHS[src/third_party/update-ssh-keys]=src/third_party/coreos-overlay/coreos-base/update-ssh-keys/update-ssh-keys-9999.ebuild
+EBUILD_PATHS[src/third_party/init]=src/third_party/coreos-overlay/coreos-base/coreos-init/coreos-init-9999.ebuild
+EBUILD_PATHS[src/third_party/update_engine]=src/third_party/coreos-overlay/coreos-base/update_engine/update_engine-9999.ebuild
+EBUILD_PATHS[src/third_party/torcx]=src/third_party/coreos-overlay/app-arch/torcx/torcx-9999.ebuild
+
+# shellcheck disable=SC2153
+for i in "${!REPOPATHS[@]}"; do
+  NAME=${REPOPATHS[$i]}
+  REV=${REPOREVS[$i]}
+
+  REPO_PATH="${NAME}"
+  REPO_NAME=$(basename "${NAME}")
+
+  if [ "${REPO_NAME}" == "coreos-overlay" ]; then
+    # We'll deal with this one later
+    OVERLAY_REV=${REV}
+    continue
+  fi
+
+  # FIXME this is a pile of hacks, we should get name and path from the xml
+  # and match on everything starting with coreos/* using the path for
+  # directories
+  # Skip Chromium OS repos
+  if [ "${REPO_NAME}" == "crostestutils" ] || [ "${REPO_NAME}" == "repohooks" ] || [ "${REPO_NAME}" == "pyelftools" ]; then
+    continue
+  fi
+
+  # Skip appc repos
+  if [ "${REPO_NAME}" == "appc-acbuild" ] || [ "${REPO_NAME}" == "appc-spec" ]; then
+    continue
+  fi
+
+  # FIXME hardcoded
+  # See comment above
+  if [ "${REPO_NAME}" == "dev" ]; then
+    REPO_NAME="dev-util"
+    REPO_PATH="src/platform/dev"
+  fi
+
+  echo Syncing "${REPO_NAME}"
+
+  pushd "${REPOS}/${REPO_PATH}"
+  git remote add fl git@github.com:flatcar-linux/"${REPO_NAME}".git || true
+  git fetch fl
+
+  # if there's no flatcar branch, skip
+  if ! git ls-remote --exit-code --heads fl flatcar >/dev/null; then
+    continue
+  fi
+
+  git checkout -B "${BUILD_BRANCH}"
+  # FIXME this only works with one commit, generalize to branches with several
+  # commits
+  if ! git cherry-pick fl/flatcar; then
+    git mergetool
+    git commit -a
+  fi
+  git push -u fl "${BUILD_BRANCH}" -f
+
+  COMMIT_ID_FL=$(git rev-parse HEAD)
+  popd
+
+  # Update revision and upstream in the manifest
+  sed -i "s:${REV}\\(.*\\)upstream=\"\\(.*\\)\":${COMMIT_ID_FL}\\1upstream=\"refs/heads/${BUILD_BRANCH}\":g" "${MANIFEST}"
+
+  # Update CROS_WORKON_COMMIT for the related ebuild if applicable.
+  #
+  # Note we're assuming the CROS_WORKON_COMMIT ref in upstream coreos matches
+  # the one present in the manifest, it's usually that way unless there're some
+  # non-code changes.
+  if [ ${EBUILD_PATHS[$NAME]+abc} ]; then
+    sed -i "s/CROS_WORKON_COMMIT=\".*\"/CROS_WORKON_COMMIT=\"${COMMIT_ID_FL}\"/g" "${REPOS}"/${EBUILD_PATHS[$NAME]}
+  fi
+done
+
+# Deal with coreos-overlay: commit CROS_WORKON_COMMIT changes and apply our
+# patches.
+pushd "${REPOS}/src/third_party/coreos-overlay"
+git remote add fl git@github.com:flatcar-linux/coreos-overlay.git || true
+git fetch fl
+
+git checkout -B "${BUILD_BRANCH}"
+git commit -a -m "change CROS_WORKON_COMMITs"
+
+if ! git cherry-pick fl/flatcar; then
+  git mergetool
+  git commit -a
+fi
+git push -u fl "${BUILD_BRANCH}" -f
+
+OVERLAY_COMMIT="$(git rev-parse HEAD)"
+popd
+
+echo Updating coreos-overlay with commit "${OVERLAY_COMMIT}"
+sed -i "s:${OVERLAY_REV}\\(.*\\)upstream=\"\\(.*\\)\":${OVERLAY_COMMIT}\\1upstream=\"refs/heads/${BUILD_BRANCH}\":g" "${MANIFEST}"
+
+echo "Updating manifest to point to flatcar remotes"
+
+# Change coreos' repos to flatcar-linux.
+sed -i 's:name="coreos/:name="flatcar-linux/:g' "${MANIFEST}"
+# Change fetch URL so it works with private repos.
+sed -i 's:fetch=".." name="github":fetch="ssh\://git@github.com" name="github":g' "${MANIFEST}"
+
+BUILD_ID_SHORT=$(echo "${BUILD_ID}" | cut -d. -f1)
+
+cp "${MANIFEST}" "${REPOS}"/.repo/manifests/build-"${BUILD_ID_SHORT}".xml
+cp "${MANIFEST}" "${REPOS}"/.repo/manifests/release.xml
+
+sed -i 's:COREOS_:FLATCAR_:g' "${REPOS}"/.repo/manifests/version.txt
+
+echo ""
+echo "Sync done. Now go to the manifests directory, check everything carefully and push away!"
+echo "You can roughly follow these steps:"
+echo ""
+echo cd "${REPOS}"/.repo/manifests
+echo git checkout -B "${BUILD_BRANCH}"
+echo git commit -a -m \"build "${BUILD_ID}"\"
+echo git tag -d v"${BUILD_ID}"
+echo git tag -s v"${BUILD_ID}" -m v"${BUILD_ID}"
+echo git push fl HEAD:"${BUILD_BRANCH}" v"${BUILD_ID}"
