@@ -7,32 +7,46 @@
 #
 #  $ sync-rclone
 #
-# In case of recovery mode, i.e. ${RECOVER_MODE} being set to 1, it will sync
-# from remote to local.
+# Usually you need to set $SRC_REPO to an absolute path to a local directory,
+# and $DST_REPO to a remote Google Storage repository.
 #
-#  $ RECOVER_MODE=1 sync-rclone
+#  $ SRC_REPO=/tmp/some-dir DST_REPO=gcs:otherproj sync-rclone
+#
+# Alternatively, you can also set them the other way around, i.e. $SRC_REPO to
+# a remote one, $DST_REPO to a local one.
+#
+#  $ SRC_REPO=gcs:otherproj DST_REPO=/tmp/some-dir sync-rclone
+#
+# Note that the remote repo name needs to be a format of REPO_NAME:BUCKET_NAME.
+# such as "gcs:jenkins-flatcar".
 #
 # Set custom GCS configs, e.g.:
 #
 #  $ GCS_PROJECT_NUMBER=987654321098 sync-rclone
 #  $ GCS_SERVICE_ACCOUNT_CONFIG=/tmp/sa.json sync-rclone
-#  $ LOCAL_REPO=/tmp/some-dir REMOTE_REPO=gcs:otherproj sync-rclone
 #
 
 set -euo pipefail
 
-RECOVER_MODE="${RECOVER_MODE:-0}"
-RCLONE_CONFIGDIR="$HOME/.config/rclone"
-LOCAL_REPO="${LOCAL_REPO:-/var/www/origin.release.flatcar-linux.net}"
+readonly RCLONE_CONFIGDIR="$HOME/.config/rclone"
+readonly SRC_REPO="${SRC_REPO:-}"
+readonly DST_REPO="${DST_REPO:-}"
 
-# NOTE: it needs to be a format of REPO_NAME:BUCKET_NAME
-REMOTE_REPO="${REMOTE_REPO:-gcs:jenkins-flatcar}"
+if [[ -z "${SRC_REPO}" ]]; then
+    echo "ERROR: please set a valid SRC_REPO variable, such as /var/www/origin.release.flatcar-linux.net/alpha."
+    exit 1
+fi
 
-GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-5257126083}"  # NOTE: please fill in a valid project number
-GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
+if [[ -z "${DST_REPO}" ]]; then
+    echo "ERROR: please set a valid DST_REPO variable, such as gcs:jenkins-flatcar."
+    exit 1
+fi
 
-TIMESTAMP="$(date +%Y%m%d%H%M%S)"
-RCLONE_OPTIONS="--verbose --backup-dir=${REMOTE_REPO}-backup-${TIMESTAMP}"
+readonly GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-5257126083}"  # NOTE: please fill in a valid project number
+readonly GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
+
+readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+readonly RCLONE_OPTIONS="--verbose --backup-dir=${DST_REPO}-backup-${TIMESTAMP}"
 
 function pushd {
     command pushd "$@" > /dev/null
@@ -92,17 +106,4 @@ if [[ ! -f "${RCLONE_CONFIGDIR}/rclone.conf" ]]; then
     gen_rclone_config
 fi
 
-if [[ "${RECOVER_MODE}" -ne 0 ]]; then
-    echo "recovery mode. syncing from remote to local."
-
-    # sync from remote to local
-    rclone sync ${RCLONE_OPTIONS} "${REMOTE_REPO}" "${LOCAL_REPO}"
-    RET=$?
-    exit ${RET}
-fi
-
-# normal mode. sync from local to remote
-rclone sync ${RCLONE_OPTIONS} "${LOCAL_REPO}" "${REMOTE_REPO}"
-RET=$?
-
-exit ${RET}
+exec rclone sync "${RCLONE_OPTIONS}" "${SRC_REPO}" "${DST_REPO}"
