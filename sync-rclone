@@ -1,0 +1,109 @@
+#!/bin/bash
+#
+# This script synchronizes storage buckets, from local to remote or vice versa,
+# making use of rclone, https://github.com/ncw/rclone.
+#
+# By default this script syncs from local directory to the remote Google Cloud.
+#
+#  $ sync-rclone
+#
+# Usually you need to set $SRC_REPO to an absolute path to a local directory,
+# and $DST_REPO to a remote Google Storage repository.
+#
+#  $ SRC_REPO=/tmp/some-dir DST_REPO=gcs:otherproj sync-rclone
+#
+# Alternatively, you can also set them the other way around, i.e. $SRC_REPO to
+# a remote one, $DST_REPO to a local one.
+#
+#  $ SRC_REPO=gcs:otherproj DST_REPO=/tmp/some-dir sync-rclone
+#
+# Note that the remote repo name needs to be a format of REPO_NAME:BUCKET_NAME.
+# such as "gcs:jenkins-flatcar".
+#
+# Set custom GCS configs, e.g.:
+#
+#  $ GCS_PROJECT_NUMBER=987654321098 sync-rclone
+#  $ GCS_SERVICE_ACCOUNT_CONFIG=/tmp/sa.json sync-rclone
+#
+
+set -euo pipefail
+
+readonly RCLONE_CONFIGDIR="$HOME/.config/rclone"
+readonly SRC_REPO="${SRC_REPO:-}"
+readonly DST_REPO="${DST_REPO:-}"
+
+if [[ -z "${SRC_REPO}" ]]; then
+    echo "ERROR: please set a valid SRC_REPO variable, such as /var/www/origin.release.flatcar-linux.net/alpha."
+    exit 1
+fi
+
+if [[ -z "${DST_REPO}" ]]; then
+    echo "ERROR: please set a valid DST_REPO variable, such as gcs:jenkins-flatcar."
+    exit 1
+fi
+
+readonly GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-5257126083}"  # NOTE: please fill in a valid project number
+readonly GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
+
+readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+readonly RCLONE_OPTIONS="--verbose --backup-dir=${DST_REPO}-backup-${TIMESTAMP}"
+
+function pushd {
+    command pushd "$@" > /dev/null
+}
+
+function popd {
+    command popd > /dev/null
+}
+
+function install_rclone {
+    local RCLONE_DESTDIR="/opt/bin"
+
+    pushd /tmp
+    curl -L --progress https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone-current-linux-amd64.zip
+    unzip rclone-current-linux-amd64.zip
+
+    pushd rclone-*-linux-amd64
+    mkdir --parents ${RCLONE_DESTDIR}
+    sudo cp rclone ${RCLONE_DESTDIR}/rclone
+    sudo chown root:root ${RCLONE_DESTDIR}/rclone
+    sudo chmod 755 ${RCLONE_DESTDIR}/rclone
+    popd
+
+    rm -rf /tmp/rclone-*-linux-amd64*
+    popd
+}
+
+function gen_rclone_config {
+    # Please fill in below a valid project_number to be able to configure
+    # Google Cloud storage.
+    # Also service_account_file needs to be a path to a valid json file
+    # downloaded from the console of Google Cloud.
+    # See also https://rclone.org/googlecloudstorage.
+
+    mkdir --parents "${RCLONE_CONFIGDIR}"
+
+    tee "${RCLONE_CONFIGDIR}/rclone.conf" << EOF
+[gcs]
+type = google cloud storage
+client_id = 
+client_secret = 
+project_number = ${GCS_PROJECT_NUMBER}
+service_account_file = ${GCS_SERVICE_ACCOUNT_CONFIG}
+object_acl = bucketOwnerFullControl
+bucket_acl = authenticatedRead
+location = eu
+storage_class = 
+token = 
+EOF
+}
+
+if ! which rclone >/dev/null 2>&1; then
+    install_rclone
+fi
+
+if [[ ! -f "${RCLONE_CONFIGDIR}/rclone.conf" ]]; then
+    gen_rclone_config
+fi
+
+exec rclone sync "${RCLONE_OPTIONS}" "${SRC_REPO}" "${DST_REPO}"
