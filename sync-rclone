@@ -25,12 +25,16 @@
 #  $ GCS_PROJECT_NUMBER=987654321098 sync-rclone
 #  $ GCS_SERVICE_ACCOUNT_CONFIG=/tmp/sa.json sync-rclone
 #
+# You can set DRY_RUN to 1, to only show commands without running them actually.
+#
+#  $ DRY_RUN=1 SRC_REPO=/tmp/some-dir DST_REPO=gcs:otherproj sync-rclone
 
 set -euo pipefail
 
 readonly RCLONE_CONFIGDIR="$HOME/.config/rclone"
 readonly SRC_REPO="${SRC_REPO:-}"
 readonly DST_REPO="${DST_REPO:-}"
+readonly DRY_RUN="${DRY_RUN:-0}"
 
 if [[ -z "${SRC_REPO}" ]]; then
     echo "ERROR: please set a valid SRC_REPO variable, such as /var/www/origin.release.flatcar-linux.net/alpha."
@@ -46,7 +50,7 @@ readonly GCS_PROJECT_NUMBER="${GCS_PROJECT_NUMBER:-5257126083}"  # NOTE: please 
 readonly GCS_SERVICE_ACCOUNT_CONFIG="${GCS_SERVICE_ACCOUNT_CONFIG:-${RCLONE_CONFIGDIR}/flatcar.json}"
 
 readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
-readonly RCLONE_OPTIONS="--verbose --backup-dir=${DST_REPO}-backup-${TIMESTAMP}"
+RCLONE_OPTIONS="--verbose --backup-dir=${DST_REPO}-backup-${TIMESTAMP}"
 
 function pushd {
     command pushd "$@" > /dev/null
@@ -98,6 +102,10 @@ token =
 EOF
 }
 
+if [[ "${DRY_RUN}" -ne 0 ]]; then
+    RCLONE_OPTIONS+=" --dry-run"
+fi
+
 if ! which rclone >/dev/null 2>&1; then
     install_rclone
 fi
@@ -106,4 +114,5 @@ if [[ ! -f "${RCLONE_CONFIGDIR}/rclone.conf" ]]; then
     gen_rclone_config
 fi
 
-exec rclone sync "${RCLONE_OPTIONS}" "${SRC_REPO}" "${DST_REPO}"
+# shellcheck disable=SC2086
+exec rclone sync ${RCLONE_OPTIONS} "${SRC_REPO}" "${DST_REPO}"
