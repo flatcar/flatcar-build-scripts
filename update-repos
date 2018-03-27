@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Synchronizes all the branches from the CoreOS upstream to the flatcar-linux
+# organization clones.
+
+set -e
+
+REPOS=(
+  "baselayout"
+  "bootengine"
+  "chromite"
+  "coreos-cloudinit"
+  "coreos-metadata"
+  "coreos-overlay"
+  "dev-util"
+  "docker"
+  "efunctions"
+  "etcd"
+  "etcdctl"
+  "grub"
+  "ignition"
+  "init"
+  "locksmith"
+  "mantle"
+  "mayday"
+  "nss-altfiles"
+  "portage-stable"
+  "rkt"
+  "scripts"
+  "sdnotify-proxy"
+  "seismograph"
+  "shim"
+  "sysroot-wrappers"
+  "systemd"
+  "toolbox"
+  "torcx"
+  "update-ssh-keys"
+  "update_engine"
+  "updateservicectl"
+  "manifest"
+  "manifest-builds"
+)
+
+# update-branches gets all the upstream branches, checks them out and pushes to
+# the origin.
+#
+# It assumes upstream and origin remotes are created and up to date.
+function update-branches() {
+  local UPSTREAM="${1}"
+  local ORIGIN="${2}"
+  local UPSTREAM_BRANCHES
+
+  UPSTREAM_BRANCHES=$(git branch -r | grep "$UPSTREAM" | grep -v HEAD | cut -d/ -f 2-)
+
+  for branch in ${UPSTREAM_BRANCHES}; do
+    git checkout -B "${branch}" "${UPSTREAM}/${branch}"
+  done
+
+  git push --all "${ORIGIN}"
+  git push --tags "${ORIGIN}"
+}
+
+PREFIX=$(mktemp -d "${PWD}/.update-repos.XXXXXXXXXX")
+
+cd "${PREFIX}"
+
+# clean up
+trap '{ export EXT="$?"; rm -rf "${PREFIX}" && exit "${EXT}"; }' EXIT
+
+for repo in "${REPOS[@]}"; do
+  git clone "git@github.com:flatcar-linux/${repo}"
+
+  pushd "${repo}"
+  git remote add upstream "https://github.com/coreos/${repo}" || true
+  git fetch --all
+  update-branches upstream origin
+  popd
+done
