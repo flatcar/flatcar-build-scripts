@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+set -e
+shopt -s expand_aliases
+
+if [ $# -ne 5 ]; then
+    echo "usage: ${0} DATA_DIR COREROLLER_URL ORIGIN_SSH_URL CHANNEL VERSION"
+    exit 1
+fi
+
+DATA_DIR="$1"
+COREROLLER_URL="$2"
+ORIGIN_SSH_URL="$3"
+CHANNEL="$4"
+VERSION="$5"
+
+COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
+
+. resty -W "${COREROLLER_URL}/api" -u "${COREROLLER_USER}":"${COREROLLER_PASS}"
+
+COLOR=$(GET /apps/"${COREOS_APP_ID}"/channels |& jq '.[] | select(.name=="'${CHANNEL}'").color')
+echo $COLOR
+
+UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
+UPDATE_URL="https://update.release.flatcar-linux.net/amd64-usr/${VERSION}"/
+
+PAYLOAD_SIZE=$(ls -l "${UPDATE_PATH}" | awk '{print $5}')
+PAYLOAD_SHA1=$(cat "${UPDATE_PATH}" | openssl dgst -sha1 -binary | base64)
+PAYLOAD_SHA256=$(cat "${UPDATE_PATH}" | openssl dgst -sha256 -binary | base64)
+
+echo "Copying update payload to update server"
+
+SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/amd64-usr/${VERSION}/"
+ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
+scp "${UPDATE_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
+
+PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages | jq '.[] | select(.version=="'${VERSION}'").id')
+
+echo "Uploading update payload"
+
+if [ -z "${PACKAGE_ID}" ]; then
+    PACKAGE_ID=$(POST /apps/"${COREOS_APP_ID}"/packages " \
+        {
+            \"filename\": \"$(basename ${UPDATE_PATH})\",
+            \"description\": \"Flatcar Linux ${VERSION}\",
+            \"url\": \"${UPDATE_URL}\",
+            \"version\": \"${VERSION}\",
+            \"type\": 1,
+            \"size\": \"${PAYLOAD_SIZE}\",
+            \"hash\": \"${PAYLOAD_SHA1}\",
+            \"application_id\": \"${COREOS_APP_ID}\",
+            \"coreos_action\":
+                {
+                    \"sha256\": \"${PAYLOAD_SHA256}\"
+                }
+        }
+        " | jq .id)
+else
+    echo "Payload with version ${VERSION} already present. Skipping upload..."
+fi
+
+echo "Uploaded payload to Coreroller"
