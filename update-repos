@@ -56,8 +56,8 @@ function update-branches() {
     git checkout -B "${branch}" "${UPSTREAM}/${branch}"
   done
 
-  git push --all "${ORIGIN}"
-  git push --tags "${ORIGIN}"
+  git push --all "${ORIGIN}" || true
+  git push --tags "${ORIGIN}" || true
 }
 
 PREFIX=$(mktemp -d "${PWD}/.update-repos.XXXXXXXXXX")
