@@ -1,0 +1,196 @@
+#!/bin/bash
+
+REGIONS=("eu-central-1"
+"ap-northeast-1"
+"ap-northeast-2"
+"ca-central-1"
+"ap-south-1"
+"sa-east-1"
+"ap-southeast-2"
+"ap-southeast-1"
+"us-east-1"
+"us-east-2"
+"us-west-2"
+"us-west-1"
+"eu-west-1"
+"eu-west-2")
+
+TEMPLATE='
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Flatcar Linux on EC2: https://docs.flatcar-linux.org/os/booting-on-ec2/",
+  "Mappings" : {
+      "RegionMap" : {
+###AMIS###
+      }
+  },
+  "Parameters": {
+    "InstanceType" : {
+      "Description" : "EC2 HVM instance type (m3.medium, etc).",
+      "Type" : "String",
+      "Default" : "m3.medium",
+      "ConstraintDescription" : "Must be a valid EC2 HVM instance type."
+    },
+    "ClusterSize": {
+      "Default": "3",
+      "MinValue": "3",
+      "MaxValue": "12",
+      "Description": "Number of nodes in cluster (3-12).",
+      "Type": "Number"
+    },
+    "DiscoveryURL": {
+      "Description": "An unique etcd cluster discovery URL. Grab a new token from https://discovery.etcd.io/new?size=<your cluster size>",
+      "Type": "String"
+    },
+    "AdvertisedIPAddress": {
+      "Description": "Use 'private' if your etcd cluster is within one region or 'public' if it spans regions or cloud providers.",
+      "Default": "private",
+      "AllowedValues": ["private", "public"],
+      "Type": "String"
+    },
+    "AllowSSHFrom": {
+      "Description": "The net block (CIDR) that SSH is available to.",
+      "Default": "0.0.0.0/0",
+      "Type": "String"
+    },
+    "KeyPair" : {
+      "Description" : "The name of an EC2 Key Pair to allow SSH access to the instance.",
+      "Type" : "String"
+    }
+  },
+  "Resources": {
+    "FlatcarSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Flatcar Linux SecurityGroup",
+        "SecurityGroupIngress": [
+          {"IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": {"Ref": "AllowSSHFrom"}}
+        ]
+      }
+    },
+    "Ingress4001": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupName": {"Ref": "FlatcarSecurityGroup"}, "IpProtocol": "tcp", "FromPort": "4001", "ToPort": "4001", "SourceSecurityGroupId": {
+          "Fn::GetAtt" : [ "FlatcarSecurityGroup", "GroupId" ]
+        }
+      }
+    },
+    "Ingress2379": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupName": {"Ref": "FlatcarSecurityGroup"}, "IpProtocol": "tcp", "FromPort": "2379", "ToPort": "2379", "SourceSecurityGroupId": {
+          "Fn::GetAtt" : [ "FlatcarSecurityGroup", "GroupId" ]
+        }
+      }
+    },
+    "Ingress2380": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupName": {"Ref": "FlatcarSecurityGroup"}, "IpProtocol": "tcp", "FromPort": "2380", "ToPort": "2380", "SourceSecurityGroupId": {
+          "Fn::GetAtt" : [ "FlatcarSecurityGroup", "GroupId" ]
+        }
+      }
+    },
+    "FlatcarServerAutoScale": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AvailabilityZones": {"Fn::GetAZs": ""},
+        "LaunchConfigurationName": {"Ref": "FlatcarServerLaunchConfig"},
+        "MinSize": "3",
+        "MaxSize": "12",
+        "DesiredCapacity": {"Ref": "ClusterSize"},
+        "Tags": [
+            {"Key": "Name", "Value": { "Ref" : "AWS::StackName" }, "PropagateAtLaunch": true}
+        ]
+      }
+    },
+    "FlatcarServerLaunchConfig": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Properties": {
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
+        "InstanceType": {"Ref": "InstanceType"},
+        "KeyName": {"Ref": "KeyPair"},
+        "SecurityGroups": [{"Ref": "FlatcarSecurityGroup"}],
+        "UserData" : { "Fn::Base64":
+          { "Fn::Join": [ "", [
+            "#cloud-config\n\n",
+            "coreos:\n",
+            "  etcd2:\n",
+            "    discovery: ", { "Ref": "DiscoveryURL" }, "\n",
+            "    advertise-client-urls: http://$", { "Ref": "AdvertisedIPAddress" }, "_ipv4:2379\n",
+            "    initial-advertise-peer-urls: http://$", { "Ref": "AdvertisedIPAddress" }, "_ipv4:2380\n",
+            "    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001\n",
+            "    listen-peer-urls: http://$", { "Ref": "AdvertisedIPAddress" }, "_ipv4:2380\n",
+            "  units:\n",
+            "    - name: etcd2.service\n",
+            "      command: start\n",
+            "    - name: fleet.service\n",
+            "      command: start\n"
+            ] ]
+          }
+        }
+      }
+    }
+  }
+}
+'
+
+function generate_templates() {
+    TYPE=$1
+    CHANNEL=$2
+
+    local REGIONS=("eu-central-1"
+                   "ap-northeast-1"
+                   "ap-northeast-2"
+                   "ca-central-1"
+                   "ap-south-1"
+                   "sa-east-1"
+                   "ap-southeast-2"
+                   "ap-southeast-1"
+                   "us-east-1"
+                   "us-east-2"
+                   "us-west-2"
+                   "us-west-1"
+                   "eu-west-1"
+                   "eu-west-2")
+
+    if [ "${TYPE}" = "hvm" ]; then
+        REGIONS+=("eu-west-3")
+    elif [ "${TYPE}" = "pv" ]; then
+        #    REGIONS+=("us-gov-west-1")
+        :
+    else
+        echo "Unrecognized type"
+    fi
+
+    TMPFILE=$(mktemp)
+
+    >${TMPFILE}
+    for region in "${REGIONS[@]}"; do
+        echo "         \"${region}\" : {" >> ${TMPFILE}
+        echo -n '             "AMI" : ' >> ${TMPFILE}
+        cat "${CHANNEL}".json | jq ".[] | map(select(.name == \"${region}\")) | .[0] | .\"${TYPE}\"" >> ${TMPFILE}
+        echo "         }," >> ${TMPFILE}
+    done
+
+    truncate -s-2 ${TMPFILE}
+
+    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}-${TYPE}.template"
+
+    rm "${TMPFILE}"
+}
+
+mkdir files
+
+for c in alpha beta stable; do
+    curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/amd64-usr/current/flatcar_production_ami_all.json"
+    generate_templates hvm $c
+    generate_templates pv $c
+done
+
+rm alpha.json beta.json stable.json
+
+aws --profile flatcar s3 cp --recursive files/ s3://flatcar-prod-ami-import-eu-central-1/dist/aws/
+
+rm -fr files
