@@ -3,23 +3,19 @@
 set -e
 shopt -s expand_aliases
 
-if [ $# -ne 5 ]; then
-    echo "usage: ${0} DATA_DIR COREROLLER_URL ORIGIN_SSH_URL CHANNEL VERSION"
+if [ $# -ne 4 ]; then
+    echo "usage: ${0} DATA_DIR COREROLLER_URL ORIGIN_SSH_URL VERSION"
     exit 1
 fi
 
 DATA_DIR="$1"
 COREROLLER_URL="$2"
 ORIGIN_SSH_URL="$3"
-CHANNEL="$4"
-VERSION="$5"
+VERSION="$4"
 
 COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
 . resty -W "${COREROLLER_URL}/api" -u "${COREROLLER_USER}":"${COREROLLER_PASS}"
-
-COLOR=$(GET /apps/"${COREOS_APP_ID}"/channels |& jq '.[] | select(.name=="'${CHANNEL}'").color')
-echo $COLOR
 
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_URL="https://update.release.flatcar-linux.net/amd64-usr/${VERSION}"/
