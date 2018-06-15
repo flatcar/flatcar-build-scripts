@@ -1,9 +1,18 @@
 #!/bin/bash
 
+# Run with a channel name and a version string:
+#
+#  $ ./fix_vagrant.sh alpha 1800.1.0
+#
+# To override the gpg command to a custom one like gpg2:
+#
+#  $ GPG=gpg2 ./fix_vagrant.sh alpha 1800.1.0
+
 set -ex
 
 CHANNEL=$1
 VERSION=$2
+readonly GPG="${GPG:-gpg}"
 
 PREFIX="https://storage.googleapis.com/jenkins-flatcar/$CHANNEL/boards/amd64-usr/$VERSION"
 
@@ -38,11 +47,11 @@ for f in *.json; do
 done
 
 for f in *.json; do
-    gpg --sign --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
+    ${GPG} --sign --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
 done
 for f in *.DIGESTS; do
-    gpg --sign --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
-    gpg --clear-sign --armor --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
+    ${GPG} --sign --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
+    ${GPG} --clear-sign --armor --detach -u F88CFEDEFF29A5B4D9523864E25D9AED0593B34A "$f"
 done
 
 scp flatcar_* "core@origin.release.flatcar-linux.net:/var/www/origin.release.flatcar-linux.net/${CHANNEL}/amd64-usr/${VERSION}/"
