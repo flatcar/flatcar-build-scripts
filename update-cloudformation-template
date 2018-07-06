@@ -191,6 +191,6 @@ done
 
 rm alpha.json beta.json stable.json
 
-aws --profile flatcar s3 cp --recursive files/ s3://flatcar-prod-ami-import-eu-central-1/dist/aws/
+aws --profile flatcar s3 cp --recursive --acl public-read files/ s3://flatcar-prod-ami-import-eu-central-1/dist/aws/
 
 rm -fr files
