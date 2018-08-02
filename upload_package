@@ -8,6 +8,11 @@ if [ $# -ne 4 ]; then
     exit 1
 fi
 
+if [ -z ${COREROLLER_USER} ] || [ -z ${COREROLLER_PASS} ]; then
+    echo '$COREROLLER_USER and ${COREROLLER_PASS} need to be defined'
+    exit 1
+fi
+
 DATA_DIR="$1"
 COREROLLER_URL="$2"
 ORIGIN_SSH_URL="$3"
