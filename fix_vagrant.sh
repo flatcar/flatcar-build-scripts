@@ -14,7 +14,7 @@ CHANNEL=$1
 VERSION=$2
 readonly GPG="${GPG:-gpg}"
 
-PREFIX="https://storage.googleapis.com/jenkins-flatcar/$CHANNEL/boards/amd64-usr/$VERSION"
+PREFIX="https://storage.googleapis.com/flatcar-jenkins/$CHANNEL/boards/amd64-usr/$VERSION"
 
 for img in flatcar_production_vagrant flatcar_production_vagrant_virtualbox flatcar_production_vagrant_vmware_fusion flatcar_production_vagrant_parallels; do
     wget "$PREFIX/$img".json
@@ -22,7 +22,7 @@ for img in flatcar_production_vagrant flatcar_production_vagrant_virtualbox flat
     wget "$PREFIX/$img".box.DIGESTS
 done
 
-sed -i "s%http://jenkins-flatcar/${CHANNEL}/boards%https://${CHANNEL}.release.flatcar-linux.net%g" *.json
+sed -i "s%http://flatcar-jenkins/${CHANNEL}/boards%https://${CHANNEL}.release.flatcar-linux.net%g" *.json
 
 for f in *.DIGESTS; do
     head -6 $f > $f.tmp

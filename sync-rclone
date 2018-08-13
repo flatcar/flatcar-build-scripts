@@ -18,7 +18,7 @@
 #  $ SRC_REPO=gcs:otherproj DST_REPO=/tmp/some-dir sync-rclone
 #
 # Note that the remote repo name needs to be a format of REPO_NAME:BUCKET_NAME.
-# such as "gcs:jenkins-flatcar".
+# such as "gcs:flatcar-jenkins".
 #
 # Set custom GCS configs, e.g.:
 #
@@ -47,7 +47,7 @@ if [[ -z "${SRC_REPO}" ]]; then
 fi
 
 if [[ -z "${DST_REPO}" ]]; then
-    echo "ERROR: please set a valid DST_REPO variable, such as gcs:jenkins-flatcar."
+    echo "ERROR: please set a valid DST_REPO variable, such as gcs:flatcar-jenkins."
     exit 1
 fi
 
