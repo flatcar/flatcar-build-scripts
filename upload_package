@@ -25,7 +25,7 @@ COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_URL="https://update.release.flatcar-linux.net/amd64-usr/${VERSION}"/
 
-PAYLOAD_SIZE=$(ls -l "${UPDATE_PATH}" | awk '{print $5}')
+PAYLOAD_SIZE=$(stat --format='%s' "${UPDATE_PATH}")
 PAYLOAD_SHA1=$(cat "${UPDATE_PATH}" | openssl dgst -sha1 -binary | base64)
 PAYLOAD_SHA256=$(cat "${UPDATE_PATH}" | openssl dgst -sha256 -binary | base64)
 
