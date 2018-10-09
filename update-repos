@@ -17,6 +17,7 @@ REPOS=(
   "efunctions"
   "etcd"
   "etcdctl"
+  "fero"
   "grub"
   "ignition"
   "init"
