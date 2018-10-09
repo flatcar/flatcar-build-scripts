@@ -51,7 +51,7 @@ function update-branches() {
   local ORIGIN="${2}"
   local UPSTREAM_BRANCHES
 
-  UPSTREAM_BRANCHES=$(git branch -r | grep "$UPSTREAM" | grep -v HEAD | cut -d/ -f 2-)
+  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2-)
 
   for branch in ${UPSTREAM_BRANCHES}; do
     git checkout -B "${branch}" "${UPSTREAM}/${branch}"
