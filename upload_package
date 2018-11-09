@@ -8,8 +8,8 @@ if [ $# -ne 4 ]; then
     exit 1
 fi
 
-if [ -z ${COREROLLER_USER} ] || [ -z ${COREROLLER_PASS} ]; then
-    echo '$COREROLLER_USER and ${COREROLLER_PASS} need to be defined'
+if [ -z ${GITHUB_TOKEN} ]; then
+    echo '$GITHUB_TOKEN needs to be defined'
     exit 1
 fi
 
@@ -20,7 +20,7 @@ VERSION="$4"
 
 COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
-. resty -W "${COREROLLER_URL}/api" -u "${COREROLLER_USER}":"${COREROLLER_PASS}"
+. resty -W "${COREROLLER_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN"
 
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_URL="https://update.release.flatcar-linux.net/amd64-usr/${VERSION}"/
