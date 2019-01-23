@@ -57,23 +57,31 @@ function update-branches() {
     git checkout -B "${branch}" "${UPSTREAM}/${branch}"
   done
 
-  git push --all "${ORIGIN}"
+  # use the --force, Luke!
+  git push --all --force "${ORIGIN}"
   git push --tags "${ORIGIN}"
 }
 
-PREFIX=$(mktemp -d "${PWD}/.update-repos.XXXXXXXXXX")
+if [ $# -eq 1 -a -d "${PWD}/$1" ] ; then
+    PREFIX="$1"
+    echo "Using existing directory $PREFIX"
+else
+    PREFIX=$(mktemp -d "${PWD}/.update-repos.XXXXXXXXXX")
+    echo "Created new directory $PREFIX"
+fi
 
 cd "${PREFIX}"
 
 # clean up
-trap '{ export EXT="$?"; rm -rf "${PREFIX}" && exit "${EXT}"; }' EXIT
+#trap '{ export EXT="$?"; rm -rf "${PREFIX}" && exit "${EXT}"; }' EXIT
 
 for repo in "${REPOS[@]}"; do
-  git clone "git@github.com:flatcar-linux/${repo}"
+  [ ! -d "${repo}" ] && git clone "git@github.com:flatcar-linux/${repo}"
 
   pushd "${repo}"
   git remote add upstream "https://github.com/coreos/${repo}" || true
   git fetch --all
   update-branches upstream origin
+
   popd
 done
