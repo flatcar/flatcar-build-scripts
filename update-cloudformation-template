@@ -183,13 +183,13 @@ function generate_templates() {
 
 mkdir files
 
-for c in alpha beta stable; do
+for c in alpha beta edge stable; do
     curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/amd64-usr/current/flatcar_production_ami_all.json"
     generate_templates hvm $c
     generate_templates pv $c
 done
 
-rm alpha.json beta.json stable.json
+rm alpha.json beta.json edge.json stable.json
 
 aws --profile flatcar s3 cp --recursive --acl public-read files/ s3://flatcar-prod-ami-import-eu-central-1/dist/aws/
 
