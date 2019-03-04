@@ -35,12 +35,16 @@ SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/amd64-usr/${
 ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
 scp "${UPDATE_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
 
-PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages | jq '.[] | select(.version=="'${VERSION}'").id')
+if ! PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1 | jq '.[] | select(.version=="'${VERSION}'").id'); then
+	echo "Failed to get metadata from Nebraska."
+	echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+	exit 1
+fi
 
 echo "Uploading update payload"
 
 if [ -z "${PACKAGE_ID}" ]; then
-    PACKAGE_ID=$(POST /apps/"${COREOS_APP_ID}"/packages " \
+    if ! PACKAGE_ID=$(POST /apps/"${COREOS_APP_ID}"/packages " \
         {
             \"filename\": \"$(basename ${UPDATE_PATH})\",
             \"description\": \"Flatcar Linux ${VERSION}\",
@@ -55,9 +59,14 @@ if [ -z "${PACKAGE_ID}" ]; then
                     \"sha256\": \"${PAYLOAD_SHA256}\"
                 }
         }
-        " | jq .id)
+        " 2>&1 | jq .id); then
+		echo "Failed to update metadata on Nebraska."
+		echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+		exit 1
+	fi
 else
     echo "Payload with version ${VERSION} already present. Skipping upload..."
+    exit 1
 fi
 
 echo "Uploaded payload to Coreroller"
