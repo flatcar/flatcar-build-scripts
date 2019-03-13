@@ -22,7 +22,7 @@ for img in flatcar_production_vagrant flatcar_production_vagrant_virtualbox flat
     wget "$PREFIX/$img".box.DIGESTS
 done
 
-sed -i "s%http://flatcar-jenkins/${CHANNEL}/boards%https://${CHANNEL}.release.flatcar-linux.net%g" *.json
+sed -i "s%https://flatcar-jenkins/${CHANNEL}%https://${CHANNEL}.release.flatcar-linux.net%g" *.json
 
 for f in *.DIGESTS; do
     head -6 $f > $f.tmp
