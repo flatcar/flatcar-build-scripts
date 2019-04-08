@@ -10,7 +10,7 @@ REPOS=(
   "bootengine"
   "chromite"
   "coreos-cloudinit"
-  "coreos-metadata"
+  "afterburn"
   "coreos-overlay"
   "dev-util"
   "docker"
