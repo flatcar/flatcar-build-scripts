@@ -38,6 +38,9 @@ REPOS=(
   "update-ssh-keys"
   "update_engine"
   "updateservicectl"
+)
+
+REPOS_MANIFEST=(
   "manifest"
   "manifest-builds"
 )
@@ -49,6 +52,7 @@ REPOS=(
 function update-branches() {
   local UPSTREAM="${1}"
   local ORIGIN="${2}"
+  local PUSH_TAGS="${3}"
   local UPSTREAM_BRANCHES
 
   UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2-)
@@ -59,7 +63,11 @@ function update-branches() {
 
   # use the --force, Luke!
   git push --all --force "${ORIGIN}"
-  git push --tags "${ORIGIN}"
+
+  # push tags only if PUSH_TAGS is true
+  if [[ ${PUSH_TAGS} == "1" ]] ; then
+    git push --tags "${ORIGIN}"
+  fi
 }
 
 
@@ -83,7 +91,18 @@ for repo in "${REPOS[@]}"; do
   pushd "${repo}"
   git remote add upstream "https://github.com/coreos/${repo}" || true
   git fetch --all
-  update-branches upstream origin
+  update-branches upstream origin 1
+
+  popd
+done
+
+for repo in "${REPOS_MANIFEST[@]}"; do
+  [ ! -d "${repo}" ] && git clone "git@github.com:flatcar-linux/${repo}"
+
+  pushd "${repo}"
+  git remote add upstream "https://github.com/coreos/${repo}" || true
+  git fetch --all
+  update-branches upstream origin 0
 
   popd
 done
