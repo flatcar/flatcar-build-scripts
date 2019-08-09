@@ -70,6 +70,26 @@ function update-branches() {
   fi
 }
 
+# Merge each upstream systemd branch to Flatcar branch, e.g. v241-coreos to v241-flatcar.
+# We need to deal with the special case, because of the special case of systemd repo,
+# which has no base point like "flatcar-master" branch. So if upstream has updated
+# the v241-coreos branch, that change needs to be also applied to v241-flatcar.
+function update-systemd-branches() {
+  local UPSTREAM="${1}"
+  local ORIGIN="${2}"
+  local UPSTREAM_BRANCHES
+
+  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM/v2[4-9][1-9]" | grep -v HEAD | cut -d/ -f 2-)
+
+  for upstream_branch in ${UPSTREAM_BRANCHES}; do
+    local flatcar_branch
+    flatcar_branch="${upstream_branch//-coreos/-flatcar}"
+
+    git checkout -B "${flatcar_branch}" "${ORIGIN}/${flatcar_branch}"
+    git merge "${UPSTREAM}/${upstream_branch}"
+    git push "${ORIGIN}" "${flatcar_branch}"
+  done
+}
 
 if [ $# -eq 1 -a -d "${PWD}/$1" ] ; then
     PREFIX="$1"
@@ -92,6 +112,10 @@ for repo in "${REPOS[@]}"; do
   git remote add upstream "https://github.com/coreos/${repo}" || true
   git fetch --all
   update-branches upstream origin 1
+
+  if [ "${repo}" = "systemd" ]; then
+    update-systemd-branches upstream origin
+  fi
 
   popd
 done
