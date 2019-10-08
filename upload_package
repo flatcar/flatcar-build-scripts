@@ -23,17 +23,20 @@ COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 . resty -W "${NEBRASKA_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN"
 
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
+UPDATE_CHECKSUM_PATH="${UPDATE_PATH}.sha256"
 UPDATE_URL="https://update.release.flatcar-linux.net/amd64-usr/${VERSION}"/
 
 PAYLOAD_SIZE=$(stat --format='%s' "${UPDATE_PATH}")
 PAYLOAD_SHA1=$(cat "${UPDATE_PATH}" | openssl dgst -sha1 -binary | base64)
 PAYLOAD_SHA256=$(cat "${UPDATE_PATH}" | openssl dgst -sha256 -binary | base64)
 
+sha256sum "${UPDATE_PATH}" > "${UPDATE_CHECKSUM_PATH}"
+
 echo "Copying update payload to update server"
 
 SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/amd64-usr/${VERSION}/"
 ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
-scp "${UPDATE_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
+scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
 
 if ! PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1 | jq '.[] | select(.version=="'${VERSION}'").id'); then
 	echo "Failed to get metadata from Nebraska."
