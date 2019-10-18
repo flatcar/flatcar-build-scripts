@@ -54,7 +54,7 @@ if [ -z "${PACKAGE_ID}" ]; then
             \"size\": \"${PAYLOAD_SIZE}\",
             \"hash\": \"${PAYLOAD_SHA1}\",
             \"application_id\": \"${COREOS_APP_ID}\",
-            \"coreos_action\":
+            \"flatcar_action\":
                 {
                     \"sha256\": \"${PAYLOAD_SHA256}\"
                 }
