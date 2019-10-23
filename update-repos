@@ -32,7 +32,6 @@ REPOS=(
   "seismograph"
   "shim"
   "sysroot-wrappers"
-  "systemd"
   "toolbox"
   "torcx"
   "update-ssh-keys"
@@ -76,18 +75,21 @@ function update-branches() {
 # the v241-coreos branch, that change needs to be also applied to v241-flatcar.
 function update-systemd-branches() {
   local UPSTREAM="${1}"
-  local ORIGIN="${2}"
+  local FLATCAR_BRANCH="${2}"
+  local ORIGIN="origin"
   local UPSTREAM_BRANCHES
 
   UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM/v2[4-9][1-9]" | grep -v HEAD | cut -d/ -f 2-)
 
   for upstream_branch in ${UPSTREAM_BRANCHES}; do
     local flatcar_branch
-    flatcar_branch="${upstream_branch//-coreos/-flatcar}"
+    flatcar_branch="${upstream_branch//-${UPSTREAM}/-${FLATCAR_BRANCH}}"
 
-    git checkout -B "${flatcar_branch}" "${ORIGIN}/${flatcar_branch}"
-    git merge "${UPSTREAM}/${upstream_branch}"
-    git push "${ORIGIN}" "${flatcar_branch}"
+    if [[ -n "$(git ls-remote ${ORIGIN} ${flatcar_branch} 2>/dev/null)" ]]; then
+      git checkout -B "${flatcar_branch}" "${ORIGIN}/${flatcar_branch}"
+      git merge "${UPSTREAM}/${upstream_branch}"
+      git push "${ORIGIN}" "${flatcar_branch}"
+    fi
   done
 }
 
@@ -113,12 +115,27 @@ for repo in "${REPOS[@]}"; do
   git fetch --all
   update-branches upstream origin 1
 
-  if [ "${repo}" = "systemd" ]; then
-    update-systemd-branches upstream origin
-  fi
-
   popd
 done
+
+# Deal with systemd repo, which needs to pull both coreos and upstream stable repo
+# (https://github.com/systemd/systemd-stable).
+# Note, at the moment the upstream stable repo is merged only by the edge channel,
+# not by stable etc.
+repo_systemd="systemd"
+
+[ ! -d "${repo_systemd}" ] && git clone "git@github.com:flatcar-linux/${repo_systemd}"
+
+pushd "${repo_systemd}"
+git remote add coreos "https://github.com/coreos/${repo_systemd}" || true
+git remote add stable "https://github.com/systemd/systemd-stable" || true
+git fetch --all
+update-branches coreos origin 0
+
+update-systemd-branches coreos flatcar
+update-systemd-branches stable flatcar-edge
+
+popd
 
 for repo in "${REPOS_MANIFEST[@]}"; do
   [ ! -d "${repo}" ] && git clone "git@github.com:flatcar-linux/${repo}"
