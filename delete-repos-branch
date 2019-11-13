@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Deletes a specific branch from the flatcar-linux remote repos.
+# Run it like:
+#
+#  ./delete-repos-branch build-2010.0.1
+#
+
+set -euo pipefail
+
+BUILD_BRANCH=$1
+
+if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ] ; then
+	echo "Usage:"
+	echo "  $0 build-x.y.z"
+	echo ""
+	exit 1
+fi
+
+. ./lib/common.sh
+
+REPOS_DIR=$(mktemp -d "${PWD}/.delete-repos.XXXXXXXXXX")
+echo "Created new directory $REPOS_DIR"
+
+# clean up
+trap '{ export EXT="$?"; rm -rf "${REPOS_DIR}" && exit "${EXT}"; }' EXIT
+
+cd "${REPOS_DIR}"
+
+for repo in "${FLATCAR_REPOS[@]}"; do
+  HEAD_URL="git@github.com:flatcar-linux/${repo}"
+
+  [ ! -d "${repo}" ] && git clone "${HEAD_URL}"
+
+  pushd "${repo}"
+
+  if [ -n "$(git ls-remote --heads "${HEAD_URL}" "${BUILD_BRANCH}")" ]; then
+    echo "Deleting a branch ${BUILD_BRANCH} from ${HEAD_URL}"
+    git push --delete origin "${BUILD_BRANCH}"
+  fi
+
+  popd
+done
