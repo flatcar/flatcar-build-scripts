@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Mirroring a specific branch from the flatcar-linux remote repos.
+# Run it like:
+#
+#  ./mirror-repos-branch build-2010.0.1 flatcar-build-2010.0.1
+#
+# source = build-2010.0.1, destination = flatcar-build-2010.0.1
+
+set -euo pipefail
+
+FORCE_MODE=${FORCE_MODE:-0}
+
+if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ] ; then
+	echo "Usage:"
+	echo "  $0 src-build-x.y.z dst-build-x.y.z"
+	echo ""
+	exit 1
+fi
+
+SRC_BUILD_BRANCH=$1
+DST_BUILD_BRANCH=$2
+
+PUSH_OPTIONS=""
+if [ "${FORCE_MODE}" = "1" ]; then
+  PUSH_OPTIONS+=" --force"
+fi
+
+. ./lib/common.sh
+
+REPOS_DIR=$(mktemp -d "${PWD}/.mirror-repos.XXXXXXXXXX")
+echo "Created new directory $REPOS_DIR"
+
+# clean up
+trap '{ export EXT="$?"; rm -rf "${REPOS_DIR}" && exit "${EXT}"; }' EXIT
+
+cd "${REPOS_DIR}"
+
+for repo in "${FLATCAR_REPOS[@]}"; do
+  # Note: systemd repo has neither flatcar-build-* branches nor flatcar-master
+  # branch. So we should skip systemd completely.
+  if [ "${repo}" = "systemd" ]; then
+    continue
+  fi
+
+  HEAD_URL="git@github.com:flatcar-linux/${repo}"
+
+  [ ! -d "${repo}" ] && git clone "${HEAD_URL}"
+
+  pushd "${repo}"
+
+  src_branch=""
+  if [ -n "$(git ls-remote --heads "${HEAD_URL}" "${SRC_BUILD_BRANCH}")" ]; then
+    src_branch=${SRC_BUILD_BRANCH}
+  else
+    src_branch="flatcar-master"
+  fi
+
+  echo "Mirroring a branch ${src_branch} to ${DST_BUILD_BRANCH}"
+  git checkout -B "${DST_BUILD_BRANCH}" "origin/${src_branch}"
+  git push ${PUSH_OPTIONS} origin "${DST_BUILD_BRANCH}"
+
+  popd
+done
