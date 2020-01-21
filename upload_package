@@ -19,6 +19,7 @@ ORIGIN_SSH_URL="$3"
 VERSION="$4"
 
 ARCH="${ARCH:-amd64-usr}"
+echo "Environment variable ARCH is specified as ${ARCH}"
 
 COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
@@ -40,7 +41,18 @@ SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/${ARCH}/${VE
 ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
 scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
 
-if ! PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1 | jq '.[] | select(.version=="'${VERSION}'").id'); then
+# Nebraska's arch enum values:
+# https://github.com/kinvolk/nebraska/blob/953a1e672f42dea4530161a31756db239e0bb8aa/pkg/api/arch.go#L9
+if [ "${ARCH}" = "amd64-usr" ]; then
+  ARCH_ID=1
+elif [ "${ARCH}" = "arm64-usr" ]; then
+  ARCH_ID=2
+else
+  echo "Unknown ARCH ${ARCH}."
+  exit 1
+fi
+
+if ! PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1 | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id'); then
 	echo "Failed to get metadata from Nebraska."
 	echo "Please make sure that you have configured a valid GITHUB_TOKEN."
 	exit 1
@@ -59,6 +71,7 @@ if [ -z "${PACKAGE_ID}" ]; then
             \"size\": \"${PAYLOAD_SIZE}\",
             \"hash\": \"${PAYLOAD_SHA1}\",
             \"application_id\": \"${COREOS_APP_ID}\",
+            \"arch\": ${ARCH_ID},
             \"flatcar_action\":
                 {
                     \"sha256\": \"${PAYLOAD_SHA256}\"
