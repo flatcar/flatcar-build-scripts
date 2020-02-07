@@ -141,6 +141,7 @@ TEMPLATE='
 function generate_templates() {
     TYPE=$1
     CHANNEL=$2
+    BOARD="$3"
 
     local REGIONS=("eu-central-1"
                    "ap-northeast-1"
@@ -166,6 +167,15 @@ function generate_templates() {
         echo "Unrecognized type"
     fi
 
+    if [ "${BOARD}" = "amd64-usr" ]; then
+      ARCHTAG=""
+    elif [ "${BOARD}" = "arm64-usr" ]; then
+      ARCHTAG="-arm64"
+    else
+      echo "No architecture tag defined for board \"${BOARD}\""
+      exit 1
+    fi
+
     TMPFILE=$(mktemp)
 
     >${TMPFILE}
@@ -178,20 +188,22 @@ function generate_templates() {
 
     truncate -s-2 ${TMPFILE}
 
-    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}-${TYPE}.template"
+    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}-${ARCHTAG}-${TYPE}.template"
 
     rm "${TMPFILE}"
 }
 
-mkdir files
+mkdir -p files
 
 for c in alpha beta edge stable; do
-    curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/${ARCH}/current/flatcar_production_ami_all.json"
-    generate_templates hvm $c
-    generate_templates pv $c
+    rm "$c.json" || true
+    curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/${ARCH}/current/flatcar_production_ami_all.json" || true
+    if [ -f "$c.json" ]; then
+        generate_templates hvm $c "${ARCH}"
+        generate_templates pv $c "${ARCH}"
+        rm "$c.json"
+    fi
 done
-
-rm alpha.json beta.json edge.json stable.json
 
 aws --profile flatcar s3 cp --recursive --acl public-read files/ s3://flatcar-prod-ami-import-eu-central-1/dist/aws/
 
