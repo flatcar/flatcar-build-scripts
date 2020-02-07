@@ -193,7 +193,7 @@ function generate_templates() {
     rm "${TMPFILE}"
 }
 
-mkdir files
+mkdir -p files
 
 for c in alpha beta edge stable; do
     rm "$c.json" || true
