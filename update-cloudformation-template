@@ -188,7 +188,7 @@ function generate_templates() {
 
     truncate -s-2 ${TMPFILE}
 
-    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}-${ARCHTAG}-${TYPE}.template"
+    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}${ARCHTAG}-${TYPE}.template"
 
     rm "${TMPFILE}"
 }
