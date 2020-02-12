@@ -124,9 +124,8 @@ TEMPLATE='
 '
 
 function generate_templates() {
-    TYPE=$1
-    CHANNEL=$2
-    BOARD="$3"
+    CHANNEL="$1"
+    BOARD="$2"
 
     local REGIONS=("eu-central-1"
                    "ap-northeast-1"
@@ -143,18 +142,10 @@ function generate_templates() {
                    "us-west-1"
                    "eu-west-1"
                    "eu-west-2"
+                   "eu-west-3"
                    "eu-north-1"
                    "ap-east-1"
                    "me-south-1")
-
-    if [ "${TYPE}" = "hvm" ]; then
-        REGIONS+=("eu-west-3")
-    elif [ "${TYPE}" = "pv" ]; then
-        #    REGIONS+=("us-gov-west-1")
-        :
-    else
-        echo "Unrecognized type"
-    fi
 
     if [ "${BOARD}" = "amd64-usr" ]; then
       ARCHTAG=""
@@ -171,13 +162,13 @@ function generate_templates() {
     for region in "${REGIONS[@]}"; do
         echo "         \"${region}\" : {" >> ${TMPFILE}
         echo -n '             "AMI" : ' >> ${TMPFILE}
-        cat "${CHANNEL}".json | jq ".[] | map(select(.name == \"${region}\")) | .[0] | .\"${TYPE}\"" >> ${TMPFILE}
+        cat "${CHANNEL}".json | jq ".[] | map(select(.name == \"${region}\")) | .[0] | .\"hvm\"" >> ${TMPFILE}
         echo "         }," >> ${TMPFILE}
     done
 
     truncate -s-2 ${TMPFILE}
 
-    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}${ARCHTAG}-${TYPE}.template"
+    echo "${TEMPLATE}" | perl -i -0pe "s/###AMIS###/$(cat -- ${TMPFILE})/g" > "files/flatcar-${CHANNEL}${ARCHTAG}-hvm.template"
 
     rm "${TMPFILE}"
 }
@@ -188,8 +179,7 @@ for c in alpha beta edge stable; do
     rm "$c.json" || true
     curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/${ARCH}/current/flatcar_production_ami_all.json" || true
     if [ -f "$c.json" ]; then
-        generate_templates hvm $c "${ARCH}"
-        generate_templates pv $c "${ARCH}"
+        generate_templates "$c" "${ARCH}"
         rm "$c.json"
     fi
 done
