@@ -130,7 +130,7 @@ function generate_templates() {
     local REGIONS=("eu-central-1"
                    "ap-northeast-1"
                    "ap-northeast-2"
-                   "ap-northeast-3"
+                   # "ap-northeast-3" #  Disabled for now because we do not have access
                    "ca-central-1"
                    "ap-south-1"
                    "sa-east-1"
