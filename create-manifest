@@ -4,7 +4,7 @@ SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
 if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
-  echo "This script will create a branch in the manifest repository checked out in $SCRIPTFOLDER/manifest and push the branch and tag."
+  echo "This script will create a branch in the manifest repository checked out in $SCRIPTFOLDER/../manifest and push the branch and tag."
   echo "The repository is cloned from github.com/flatcar-linux/manifest.git if it does not exist (origin must be flatcar-linux)."
   echo "Set VERSION and SDK_VERSION as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.2.0 $0"
   echo
