@@ -63,7 +63,9 @@ function aws_unpublish_amis() {
         local id=""
         id=$(echo "$line" | awk -F "," '{print $2}')
         [ -n "$id" ] && {
-            $aws ec2 --region "$region" deregister-image --image-id "$id"
+            $aws ec2 --region "$region" \
+                 deregister-image --image-id "$id" \
+                 --profile "$profile"
         }
     done <"$ami_list"
 }
@@ -83,7 +85,9 @@ function aws_delete_snapshots() {
         local id=""
         id=$(echo "$line" | awk -F "," '{print $4}')
         [ -n "$id" ] && {
-            $aws ec2 --region "$region" delete-snapshot --snapshot-id "$id"
+            $aws ec2 --region "$region" \
+                 delete-snapshot --snapshot-id "$id" \
+                 --profile "$profile"
         }
     done <"$ami_list"
 }
