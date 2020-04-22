@@ -11,7 +11,7 @@ AWS_REMOVE_OLDER_THAN="1 year ago" # this is a date(1) --date string
 
 function print_aws() {
     # for --dry-run
-    echo "aws $@"
+    echo "aws $*"
 }
 # --
 
@@ -20,7 +20,8 @@ function aws_list_amis() {
 
     # We're not using --profile here since Jenkins does not have
     # "describe-regions" access rights
-    local regions=$(aws ec2 describe-regions --all-regions  \
+    local regions=""
+    regions=$(aws ec2 describe-regions --all-regions  \
                              | jq -r '.Regions[] | "\(.RegionName)"')
 
     echo -n "Fetching images list from regions: "
@@ -28,9 +29,9 @@ function aws_list_amis() {
         echo -n "$r "
         aws ec2 describe-images --owners 075585003325 \
                                  --profile "$profile" \
-                                --region $r  \
+                                --region "$r"  \
             | jq -r '.Images[] | "\(.CreationDate),\(.ImageId),\(.Description),\(.BlockDeviceMappings[0].Ebs.SnapshotId) "' \
-            | sort -t: -r -k1 > region_$r.csv
+            | sort -t: -r -k1 > "region_$r.csv"
     done
     echo " - Done."
 }
@@ -41,8 +42,8 @@ function extract_old_amis() {
     local region=""
 
     for region in region_*.csv; do
-        echo "region,$region" | sed 's/\.csv//'
-        awk -F "," "\$1 < \"$older_than\"" $region
+        echo "region,${region/\.csv/}"
+        awk -F "," "\$1 < \"$older_than_ts\"" "$region"
         echo
     done
 }
@@ -54,15 +55,16 @@ function aws_unpublish_amis() {
     local ami_list="$3"
     local region=""
 
-    cat "$ami_list" | while read line; do
+    while read -r line; do
         echo "$line" | grep -qE '^region,' && {
-                                region=$(echo "$line" | sed 's/.*,//g')
+                                region=${line/*,/g}
                                 continue; }
-        local id=$(echo "$line" | awk -F "," '{print $2}')
+        local id=""
+        id=$(echo "$line" | awk -F "," '{print $2}')
         [ -n "$id" ] && {
-            $aws ec2 --region "$region" deregister-image --image-id $id
+            $aws ec2 --region "$region" deregister-image --image-id "$id"
         }
-    done
+    done <"$ami_list"
 }
 # --
 
@@ -72,16 +74,17 @@ function aws_delete_snapshots() {
     local ami_list="$3"
     local region=""
 
-    cat "$ami_list" | while read line; do
+    while read -r line; do
         echo "$line" | grep -qE '^region,' && {
-                                region=$(echo "$line" | sed 's/.*,//g')
+                                region=${line/*,/g}
                                 continue
                             }
-        local id=$(echo "$line" | awk -F "," '{print $4}')
+        local id=""
+        id=$(echo "$line" | awk -F "," '{print $4}')
         [ -n "$id" ] && {
-            $aws ec2 --region "$region" delete-snapshot --snapshot-id $id
+            $aws ec2 --region "$region" delete-snapshot --snapshot-id "$id"
         }
-    done
+    done <"$ami_list"
 }
 # --
 
@@ -119,7 +122,8 @@ function aws_remove_old_amis() {
          esac
     done
 
-    local older_than=$(date --date "$AWS_REMOVE_OLDER_THAN" +%Y-%m-%dT00:00:00.000Z)
+    local older_than=""
+    older_than=$(date --date "$AWS_REMOVE_OLDER_THAN" +%Y-%m-%dT00:00:00.000Z)
     local result_file="amis_older_than_$older_than.csv"
 
     [ -f "$unpublish_file" ] && {
@@ -132,7 +136,7 @@ function aws_remove_old_amis() {
         aws_delete_snapshots "$aws" "$profile" "$delete_file"
     }
 
-    [ -f "$unpublish_file" -o -f "$delete_file" ] && return
+    [ -f "$unpublish_file" ] || [ -f "$delete_file" ] && return
 
     aws_list_amis "$profile"
     extract_old_amis "$older_than" > "$result_file"
@@ -141,6 +145,6 @@ function aws_remove_old_amis() {
 # --
 
 
-if [ "$(basename $0)" = "aws-remove-old-amis.sh" ] ; then
-	aws_remove_old_amis $@
+if [ "$(basename "$0")" = "aws-remove-old-amis.sh" ] ; then
+	aws_remove_old_amis "$@"
 fi
