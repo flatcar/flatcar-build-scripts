@@ -58,7 +58,7 @@ function aws_unpublish_amis() {
 
     while read -r line; do
         echo "$line" | grep -qE '^region,' && {
-                                region=${line/*,/g}
+                                region=${line/*,/}
                                 continue; }
         local id=""
         id=$(echo "$line" | awk -F "," '{print $2}')
@@ -77,7 +77,7 @@ function aws_delete_snapshots() {
 
     while read -r line; do
         echo "$line" | grep -qE '^region,' && {
-                                region=${line/*,/g}
+                                region=${line/*,/}
                                 continue
                             }
         local id=""
