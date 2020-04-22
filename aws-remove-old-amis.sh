@@ -42,7 +42,8 @@ function extract_old_amis() {
     local region=""
 
     for region in region_*.csv; do
-        echo "region,${region/\.csv/}"
+        local r="${region/#region_/}"
+        echo "region,${r/\.csv/}"
         awk -F "," "\$1 < \"$older_than_ts\"" "$region"
         echo
     done
