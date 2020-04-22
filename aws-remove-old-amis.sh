@@ -59,13 +59,17 @@ function aws_unpublish_amis() {
     while read -r line; do
         echo "$line" | grep -qE '^region,' && {
                                 region=${line/*,/}
+                                echo ""
+                                echo "Region $region"
                                 continue; }
         local id=""
         id=$(echo "$line" | awk -F "," '{print $2}')
         [ -n "$id" ] && {
+            echo -n "$id"
             $aws ec2 --region "$region" \
                  deregister-image --image-id "$id" \
                  --profile "$profile"
+            echo ""
         }
     done <"$ami_list"
 }
@@ -80,14 +84,18 @@ function aws_delete_snapshots() {
     while read -r line; do
         echo "$line" | grep -qE '^region,' && {
                                 region=${line/*,/}
+                                echo ""
+                                echo "Region $region"
                                 continue
                             }
         local id=""
         id=$(echo "$line" | awk -F "," '{print $4}')
         [ -n "$id" ] && {
+            echo -n "$id"
             $aws ec2 --region "$region" \
                  delete-snapshot --snapshot-id "$id" \
                  --profile "$profile"
+            echo ""
         }
     done <"$ami_list"
 }
