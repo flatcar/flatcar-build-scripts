@@ -47,9 +47,9 @@ repo_map = {"coreos-init": "init", "cros-devutils": "dev-util", "gmerge": "dev-u
 def display_difference(from_theirs, to_ours, name, recurse=False):
     from_to = from_theirs + ".." + to_ours
     to_from = to_ours + ".." + from_theirs
-    diff = git.diff(from_to, _bg=False, _decode_errors="replace")
-    commits_we_have = git.log("--no-merges", from_to)
-    commits_they_have = git.log("--no-merges", to_from)
+    diff = git.diff(from_to, "--", ".", ":!.github", _bg=False, _decode_errors="replace")
+    commits_we_have = git.log("--no-merges", from_to, "--", ".", ":!.github")
+    commits_they_have = git.log("--no-merges", to_from, "--", ".", ":!.github")
     desc_start = "↓" * 25
     desc_end = "↑" * 25
     desc = "Diff for " + name
