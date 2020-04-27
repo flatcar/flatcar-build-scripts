@@ -11,7 +11,7 @@ AWS_REMOVE_OLDER_THAN="1 year ago" # this is a date(1) --date string
 
 function print_aws() {
     # for --dry-run
-    echo "aws $*"
+    echo " [ command: 'aws $*' ]"
 }
 # --
 
@@ -65,10 +65,10 @@ function aws_unpublish_amis() {
         local id=""
         id=$(echo "$line" | awk -F "," '{print $2}')
         [ -n "$id" ] && {
-            echo -n "$id"
+            echo -n "processing $id "
             $aws ec2 --region "$region" \
                  deregister-image --image-id "$id" \
-                 --profile "$profile"
+                 --profile "$profile" || true
             echo ""
         }
     done <"$ami_list"
@@ -91,10 +91,10 @@ function aws_delete_snapshots() {
         local id=""
         id=$(echo "$line" | awk -F "," '{print $4}')
         [ -n "$id" ] && {
-            echo -n "$id"
+            echo -n "processing $id "
             $aws ec2 --region "$region" \
                  delete-snapshot --snapshot-id "$id" \
-                 --profile "$profile"
+                 --profile "$profile" || true
             echo ""
         }
     done <"$ami_list"
@@ -131,7 +131,7 @@ function aws_ami_status() {
 
             out=$(aws ec2 --profile "$profile" --region "$region" \
                                 describe-snapshots --snapshot-ids "$snap_id" \
-                        | jq -r '.Snapshots[] | "\(.SnapshotId)"')
+                        2>/dev/null | jq -r '.Snapshots[] | "\(.SnapshotId)"')
             [ -z "$out" ] && out="unavailable"
             echo "$out"
         }
