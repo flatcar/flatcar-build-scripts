@@ -18,16 +18,25 @@ parser.add_argument("--coreos-overlay", type=str, help="Path to coreos-overlay r
 parser.add_argument("--no-color", dest="no_color", action="store_true", help="Don't pipe diff through colordiff")
 parser.add_argument("--no-commits", dest="no_commits", action="store_true", help="Don't log which commits are missing")
 parser.add_argument("--no-diffs", dest="no_diffs", action="store_true", help="Don't show diffs")
+parser.add_argument("--use-delta", dest="use_delta", action="store_true", help="Use https://github.com/dandavison/delta instead of colordiff")
 parser.set_defaults(ours="HEAD", coreos_overlay=".", no_color=False, no_commits=False, no_diffs=False)
 args = parser.parse_args()
 
 base_folder = str(Path(args.coreos_overlay + "/../").resolve()) + "/"
 
-if not args.no_color and not which("colordiff"):
-    raise Exception("colordiff not installed, try to run: sudo dnf install colordiff")
+colordifftool = "colordiff"
+if args.use_delta:
+    colordifftool = "delta"
+
+if not args.no_color and not which(colordifftool):
+    raise Exception(colordifftool + " not installed, try to run: sudo dnf install colordiff (for colordiff) or cargo install --git https://github.com/dandavison/delta (for --use-delta)")
 
 if not args.no_color:
-    from sh import colordiff
+    if args.use_delta:
+        from sh import delta as colordiff
+        colordiff = colordiff.bake("--theme=none", "--color-only", "--paging=never")
+    else:
+        from sh import colordiff
 
 warnings = []
 
@@ -38,9 +47,9 @@ repo_map = {"coreos-init": "init", "cros-devutils": "dev-util", "gmerge": "dev-u
 def display_difference(from_theirs, to_ours, name, recurse=False):
     from_to = from_theirs + ".." + to_ours
     to_from = to_ours + ".." + from_theirs
-    diff = git.diff(from_to, _bg=False, _decode_errors="replace")
-    commits_we_have = git.log("--no-merges", from_to)
-    commits_they_have = git.log("--no-merges", to_from)
+    diff = git.diff(from_to, "--", ".", ":!.github", _bg=False, _decode_errors="replace")
+    commits_we_have = git.log("--no-merges", from_to, "--", ".", ":!.github")
+    commits_they_have = git.log("--no-merges", to_from, "--", ".", ":!.github")
     desc_start = "↓" * 25
     desc_end = "↑" * 25
     desc = "Diff for " + name
