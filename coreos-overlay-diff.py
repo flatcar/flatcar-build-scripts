@@ -18,25 +18,22 @@ parser.add_argument("--coreos-overlay", type=str, help="Path to coreos-overlay r
 parser.add_argument("--no-color", dest="no_color", action="store_true", help="Don't pipe diff through colordiff")
 parser.add_argument("--no-commits", dest="no_commits", action="store_true", help="Don't log which commits are missing")
 parser.add_argument("--no-diffs", dest="no_diffs", action="store_true", help="Don't show diffs")
-parser.add_argument("--use-delta", dest="use_delta", action="store_true", help="Use https://github.com/dandavison/delta instead of colordiff")
+parser.add_argument("--diff-style", choices=["standard", "word-diff", "icdiff", "colordiff", "delta"],
+                    help="Instead of standard git diff, use either git --word-diff, git icdiff, or pipe the existing diff through colordiff or delta")
 parser.set_defaults(ours="HEAD", coreos_overlay=".", no_color=False, no_commits=False, no_diffs=False)
 args = parser.parse_args()
 
 base_folder = str(Path(args.coreos_overlay + "/../").resolve()) + "/"
 
-colordifftool = "colordiff"
-if args.use_delta:
-    colordifftool = "delta"
-
-if not args.no_color and not which(colordifftool):
-    raise Exception(colordifftool + " not installed, try to run: sudo dnf install colordiff (for colordiff) or cargo install --git https://github.com/dandavison/delta (for --use-delta)")
-
-if not args.no_color:
-    if args.use_delta:
-        from sh import delta as colordiff
-        colordiff = colordiff.bake("--theme=none", "--color-only", "--paging=never")
-    else:
-        from sh import colordiff
+if args.diff_style == "colordiff":
+    if not which("colordiff"):
+        raise Exception("colordiff not installed, try to run: sudo dnf install colordiff")
+    from sh import colordiff
+elif args.diff_style == "delta":
+    if not which("delta"):
+        raise Exception("delta not installed, try to run: cargo install --git https://github.com/dandavison/delta")
+    from sh import delta
+    colordiff = delta.bake("--theme=none", "--color-only", "--paging=never")
 
 warnings = []
 
@@ -47,7 +44,8 @@ repo_map = {"coreos-init": "init", "cros-devutils": "dev-util", "gmerge": "dev-u
 def display_difference(from_theirs, to_ours, name, recurse=False):
     from_to = from_theirs + ".." + to_ours
     to_from = to_ours + ".." + from_theirs
-    diff = git.diff(from_to, "--", ".", ":!.github", _bg=False, _decode_errors="replace")
+    diff_args = [from_to, "--", ".", ":!.github"]
+    diff = git.diff(*diff_args, _bg=False, _decode_errors="replace")
     commits_we_have = git.log("--no-merges", from_to, "--", ".", ":!.github")
     commits_they_have = git.log("--no-merges", to_from, "--", ".", ":!.github")
     desc_start = "↓" * 25
@@ -55,10 +53,16 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
     desc = "Diff for " + name
     if not args.no_diffs:
         print(desc_start, desc, desc_start + "\n")
-        if args.no_color:
+        if args.diff_style == "icdiff":
+            print(git.difftool("-y", "-x", "icdiff --is-git-diff --cols=160", *diff_args, _bg=False, _decode_errors="replace"))
+        elif args.diff_style == "word-diff":
+            print(git.diff("--word-diff", "--no-color" if args.no_color else "--color", *diff_args, _bg=False, _decode_errors="replace"))
+        elif args.no_color:
             print(diff)
-        else:
+        elif args.diff_style == "colordiff" or args.diff_style == "delta":
             print(colordiff(diff, _decode_errors="replace"))
+        else:
+            print(git.diff("--color", *diff_args, _bg=False, _decode_errors="replace"))
         print("\n" + desc_end, desc, desc_end + "\n")
     if not args.no_commits:
         desc = "Commits for " + name + " in our " + to_ours + " but not in their " + from_theirs
