@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-  <notice>Your sources have been sync'd successfully.</notice>
+  <notice>Your sources have been sync'd successfully. Note that only the revisions for the coreos-overlay, scripts, and portage-stable repositories are relevant. Revisions for the other repositories are specified in the ebuild files.</notice>
   <remote fetch=".." name="github"/>
   <remote fetch="ssh://git@github.com" name="private"/>
   
