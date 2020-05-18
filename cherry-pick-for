@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: $0 BRANCH COMMITS..."
+  echo "Switches to the given branch, pulls it, cherry-picks all given commits, and pushes the branch"
+  exit 1
+fi
+
+BRANCH="$1"
+COMMITS="${@:2}"
+
+echo "Checking out $BRANCH"
+git checkout "$BRANCH"
+echo "Pulling $BRANCH"
+git pull
+echo "Going to pick $COMMITS"
+for COMMIT in $COMMITS; do
+  echo "Cherry-picking $COMMIT for $BRANCH"
+  git cherry-pick "$COMMIT"
+done
+echo "Successfully picked $COMMITS"
+git push
+echo "Done"
