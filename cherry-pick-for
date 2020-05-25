@@ -3,23 +3,40 @@
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  echo "Usage: $0 BRANCH COMMITS..."
+  echo "Usage: $0 (--no-checkout-and-pull|BRANCH) COMMITS..."
   echo "Switches to the given branch, pulls it, cherry-picks all given commits, and pushes the branch"
+  echo "  --no-checkout-and-pull: If given instead of a branch, skips switching and pulling but pushes in the end"
   exit 1
 fi
 
 BRANCH="$1"
 COMMITS="${@:2}"
 
-echo "Checking out $BRANCH"
-git checkout "$BRANCH"
-echo "Pulling $BRANCH"
-git pull
+if [ "$BRANCH" = "--no-checkout-and-pull" ]; then
+  BRANCH="HEAD"
+else
+  echo "Checking out $BRANCH"
+  git checkout "$BRANCH"
+  echo "Pulling $BRANCH"
+  git pull
+fi
+
+# Remove BRANCH from arguments to get the COMMITS to the front
+shift
+
 echo "Going to pick $COMMITS"
 for COMMIT in $COMMITS; do
   echo "Cherry-picking $COMMIT for $BRANCH"
+  # Remove current COMMIT from arguments to get the list of remaining commits
+  shift
+  if [ $# -gt 0 ]; then
+    echo "If you need to resolve conflicts, continue with: $0 --no-checkout-and-pull $@"
+  else
+    echo "If you need to resolve conflicts, continue with: git push"
+  fi
   git cherry-pick "$COMMIT"
 done
+
 echo "Successfully picked $COMMITS"
 git push
 echo "Done"
