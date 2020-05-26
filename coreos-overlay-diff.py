@@ -133,7 +133,7 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
 
 
 os.chdir(args.coreos_overlay)
-display_difference(args.THEIRS, args.ours, "coreos-overlay", recurse=True)
+display_difference(args.THEIRS, args.ours, os.path.basename(os.path.abspath(".")), recurse=True)
 if warnings:
     print("Encountered some errors when trying to compare recursively, probably due to deleted files:")
     print("\n".join(warnings))
