@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: $0 FLATCAR_VERSION_A FLATCAR_VERSION_B"
+  echo "Shows the ebuild package changes between two Flatcar versions"
+  echo "Environment variables:"
+  echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build"
+  echo "Set CHANNEL_(A|B)=(alpha|beta|edge|developer) to select a build for another channel than stable"
+  echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt)"
+  echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
+  echo "Set MODE_(A|B)=developer/ to select a developer build"
+  exit 1
+fi
+
+set -euo pipefail
+
+CHANNEL_A="${CHANNEL_A-stable}"
+CHANNEL_B="${CHANNEL_B-stable}"
+BOARD_A="${BOARD_A-amd64-usr}"
+BOARD_B="${BOARD_B-amd64-usr}"
+MODE_A="${MODE_A-/}"
+MODE_B="${MODE_B-/}"
+FILE="${FILE-flatcar_production_image_packages.txt}"
+VERSION_A="$1"
+VERSION_B="$2"
+
+A="$(mktemp "/tmp/$VERSION_A-XXXXXX")"
+B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
+
+trap "rm -f \"$A\" \"$B\"" EXIT
+
+curl --location --silent -S -o "$A" https://storage.googleapis.com/flatcar-jenkins"$MODE_A""$CHANNEL_A"/boards/"$BOARD_A"/"$VERSION_A"/"$FILE"
+curl --location --silent -S -o "$B" https://storage.googleapis.com/flatcar-jenkins"$MODE_B""$CHANNEL_B"/boards/"$BOARD_B"/"$VERSION_B"/"$FILE"
+
+git diff "$A" "$B"
