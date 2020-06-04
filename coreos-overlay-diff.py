@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from sh import which, ErrorReturnCode  # Requires "sh": sudo dnf install python3-sh
+from sh import which, grep, cut, mktemp, ErrorReturnCode  # Requires "sh": sudo dnf install python3-sh
 from sh.contrib import git
 # Read docs here: http://amoffat.github.io/sh/index.html
 
@@ -41,13 +41,36 @@ repo_map = {"coreos-init": "init", "cros-devutils": "dev-util", "gmerge": "dev-u
             "fero-client": "fero", "actool": "spec"}
 
 
+def commits_to_pick(src="src", dst="dst"):
+    # Shows which commits in src can be picked from src to dst.
+    # The output is in the format of git log dst..src but excluding
+    # changes to .github and commits that are cherry-picked already.
+    # The function is equivalent to these two commands but with error checking:
+    # $ git cherry dst src | grep ^+ | cut -d " " -f 2 > tmp_outfile
+    # $ git log --no-merges --cherry-pick --format=%H dst..src -- . :!.github | grep -F -x -f tmp_outfile | xargs git show -s
+    # In our case --cherry-pick doesn't actually filter out we want to filter out
+    # (maybe a Flatcar branch strangeness), so we need to postprocess with git cherry.
+    tmp_outfile = str(mktemp("-u")).split("\n")[0]
+    commits_src_has_with_cherry = git.log("--no-merges", "--cherry-pick", # set --cherry-pick just in case it will filter out something already
+        "--format=%H", dst + ".." + src , "--", ".", ":!.github")
+    _commits_src_has_without_cherry = cut(grep(git.cherry(dst, src, _bg=False),
+                                               "^+", _ok_code=[1, 0]),
+                                          "-d", " ", "-f", "2", _out=tmp_outfile)
+    commits_src_has_filtered = str(grep(commits_src_has_with_cherry,
+                                        "-F", "-x", "-f", tmp_outfile,
+                                        _ok_code=[1, 0])).strip().split("\n")
+    if len(commits_src_has_filtered) > 0:
+        git_log = git.show("-s", *commits_src_has_filtered)
+    else:
+        git_log = ""
+    os.remove(tmp_outfile)
+    return git_log
+
+
 def display_difference(from_theirs, to_ours, name, recurse=False):
-    from_to = from_theirs + ".." + to_ours
-    to_from = to_ours + ".." + from_theirs
-    diff_args = [from_to, "--", ".", ":!.github"]
+    # That means, show what "our" branch adds to "their" branch
+    diff_args = [from_theirs + ".." + to_ours, "--", ".", ":!.github"]
     diff = git.diff(*diff_args, _bg=False, _decode_errors="replace")
-    commits_we_have = git.log("--no-merges", from_to, "--", ".", ":!.github")
-    commits_they_have = git.log("--no-merges", to_from, "--", ".", ":!.github")
     desc_start = "↓" * 25
     desc_end = "↑" * 25
     desc = "Diff for " + name
@@ -65,6 +88,10 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
             print(git.diff("--color", *diff_args, _bg=False, _decode_errors="replace"))
         print("\n" + desc_end, desc, desc_end + "\n")
     if not args.no_commits:
+        # Branch "our" is the checked out branch and "git diff" shows what "our" branch has that "their" branch doesn't.
+        # Converting the diff to "our" commits to pick for "their" branch) means setting "src" as "our".
+        commits_we_have = commits_to_pick(src=to_ours, dst=from_theirs)
+        commits_they_have = commits_to_pick(src=from_theirs, dst=to_ours)
         desc = "Commits for " + name + " in our " + to_ours + " but not in their " + from_theirs
         print(desc_start, desc, desc_start + "\n")
         print(commits_we_have)
@@ -133,7 +160,7 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
 
 
 os.chdir(args.coreos_overlay)
-display_difference(args.THEIRS, args.ours, "coreos-overlay", recurse=True)
+display_difference(args.THEIRS, args.ours, os.path.basename(os.path.abspath(".")), recurse=True)
 if warnings:
     print("Encountered some errors when trying to compare recursively, probably due to deleted files:")
     print("\n".join(warnings))
