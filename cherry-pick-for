@@ -3,8 +3,10 @@
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  echo "Usage: $0 (--no-checkout-and-pull|BRANCH) COMMITS..."
-  echo "Switches to the given branch, pulls it, cherry-picks all given commits, and pushes the branch"
+  echo "Usage: $0 (--no-checkout-and-pull|BRANCH) (COMMITS...|https://github.com/ORG/REPO/pull/NUMBER)"
+  echo "Switches to the given branch, pulls it, cherry-picks all given commits or all commits of the"
+  echo "given GitHub PR, and pushes the branch"
+  echo "Parameters:"
   echo "  --no-checkout-and-pull: If given instead of a branch, skips switching and pulling but pushes in the end"
   exit 1
 fi
@@ -24,19 +26,31 @@ fi
 # Remove BRANCH from arguments to get the COMMITS to the front
 shift
 
-echo "Going to pick $COMMITS"
-for COMMIT in $COMMITS; do
-  echo "Cherry-picking $COMMIT for $BRANCH"
-  # Remove current COMMIT from arguments to get the list of remaining commits
-  shift
-  if [ $# -gt 0 ]; then
-    echo "If you need to resolve conflicts, continue with: $0 --no-checkout-and-pull $@"
-  else
-    echo "If you need to resolve conflicts, continue with: git push"
+if [ "${COMMITS:0:4}" = http ]; then
+  URL="$COMMITS"
+  if [[ "$URL" = *" "* ]]; then
+    echo "Error: Only one URL supported as argument"
+    exit 1
   fi
-  git cherry-pick "$COMMIT"
-done
+  echo "Going to merge $URL"
+  echo "If you need to resolve conflicts, follow the \"git status\" instructions, then run: git push"
+  curl -s -S -f -L "$URL".patch | git am --3way
+  echo "Successfully picked $URL"
+else
+  echo "Going to pick $COMMITS"
+  for COMMIT in $COMMITS; do
+    echo "Cherry-picking $COMMIT for $BRANCH"
+    # Remove current COMMIT from arguments to get the list of remaining commits
+    shift
+    if [ $# -gt 0 ]; then
+      echo "If you need to resolve conflicts, continue with: $0 --no-checkout-and-pull $@"
+    else
+      echo "If you need to resolve conflicts, continue with: git push"
+    fi
+    git cherry-pick "$COMMIT"
+  done
+  echo "Successfully picked $COMMITS"
+fi
 
-echo "Successfully picked $COMMITS"
 git push
 echo "Done"
