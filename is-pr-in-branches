@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -euo pipefail
+
+DEFAULT_BRANCHES="origin/flatcar-master origin/flatcar-master-alpha origin/flatcar-master-beta origin/flatcar-master-edge"
+
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: $0 https://github.com/ORG/REPO/pull/NUMBER [branches...]"
+  echo "Checks if the given PR is in all default branches"
+  echo "($DEFAULT_BRANCHES)"
+  echo "or the given branches of the current directory's git repository"
+  echo "Environment variables:"
+  echo "Set SHOW_PATCHES=0 to suppress git show output for all missing patches per branch"
+  exit 1
+fi
+
+SHOW_PATCHES="${SHOW_PATCHES-1}"
+URL="$1"
+BRANCHES="${@:2}"
+
+if [ "$BRANCHES" = "" ]; then
+  BRANCHES="$DEFAULT_BRANCHES"
+fi
+
+PATCH_TMP_FILE="$(mktemp)"
+PATCH_ID_TMP_FILE="$(mktemp)"
+BRANCH_COMMON_PATCHES_TMP_FILE="$(mktemp)"
+COMM_TMP_FILE="$(mktemp)"
+trap "rm -f \"$PATCH_TMP_FILE\" \"$PATCH_ID_TMP_FILE\" \"$BRANCH_COMMON_PATCHES_TMP_FILE\" \"$COMM_TMP_FILE\"" EXIT
+
+# Download the commits in the e-mail patch format
+curl -s -S -f -L "$URL".patch > "$PATCH_TMP_FILE"
+
+# Calculate the patch IDs and save them to a file
+# The output of "git patch-id" is in the format "PATCH-ID COMMIT-ID"
+PATCH_IDS_AND_COMMITS="$(cat "$PATCH_TMP_FILE" | git patch-id)"
+if [ "$PATCH_IDS_AND_COMMITS" = "" ]; then
+  echo "Error: No patches found"
+  exit 1
+fi
+
+# Save all patch IDs of the PR to a file used later as list of grep patterns
+echo "$PATCH_IDS_AND_COMMITS" | cut -d ' ' -f 1 | sort > "$PATCH_ID_TMP_FILE"
+
+for BRANCH in $BRANCHES; do
+  # Get all patch IDs of the branch that are also in our PR and save them to a temporary file
+  git log --no-merges -p "$BRANCH" | git patch-id | cut -d ' ' -f 1 | sort | (grep -F -x -f "$PATCH_ID_TMP_FILE" || true) > "$BRANCH_COMMON_PATCHES_TMP_FILE"
+  # The list of patch IDs should be the same if all patches are present in the branch
+  if ! cmp -s "$PATCH_ID_TMP_FILE" "$BRANCH_COMMON_PATCHES_TMP_FILE"; then
+    echo "Following patch-ids are missing in $BRANCH:"
+    echo
+    # Output all patch IDs only present in the PR but missing from the branch
+    comm -3 "$PATCH_ID_TMP_FILE" "$BRANCH_COMMON_PATCHES_TMP_FILE" | tee "$COMM_TMP_FILE"
+    if [ "$SHOW_PATCHES" = "1" ]; then
+      echo
+      # Display the missing patches from the PR
+      # Using "| xargs git --no-pager show" won't work when the commits are not part of any branch with their original ID
+      for COMMIT in $(echo "$PATCH_IDS_AND_COMMITS" | grep -F -f "$COMM_TMP_FILE" | cut -d ' ' -f 2); do
+        # Match a single patch over multiple lines until "From " or EOF is reached
+        (grep -Pzo '(?s)From '"$COMMIT"'.*?\n((?=From )|$)' "$PATCH_TMP_FILE" || true) | (colordiff 2> /dev/null || cat)
+      done
+    fi
+  else
+    echo "Found all patches in $BRANCH"
+  fi
+  echo
+  echo "--------------------------------------------------------------------------------"
+  echo
+done
+
+echo "Done"
