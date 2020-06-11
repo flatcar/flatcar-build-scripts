@@ -9,6 +9,7 @@
 
 set -euo pipefail
 
+ALL_REPOS=${ALL_REPOS:-0}
 FORCE_MODE=${FORCE_MODE:-0}
 
 if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ] ; then
@@ -27,6 +28,10 @@ if [ "${FORCE_MODE}" = "1" ]; then
 fi
 
 . ./lib/common.sh
+
+if [ "${ALL_REPOS}" = "0" ]; then
+  FLATCAR_REPOS=("coreos-overlay" "portage-stable" "scripts")
+fi
 
 REPOS_DIR=$(mktemp -d "${PWD}/.mirror-repos.XXXXXXXXXX")
 echo "Created new directory $REPOS_DIR"

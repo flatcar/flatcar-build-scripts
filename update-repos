@@ -17,7 +17,8 @@ function update-branches() {
   local PUSH_TAGS="${3}"
   local UPSTREAM_BRANCHES
 
-  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2-)
+  # Exclude branches that contain "flatcar" and would overwrite our branches
+  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2- | grep -v flatcar)
 
   for branch in ${UPSTREAM_BRANCHES}; do
     git checkout -B "${branch}" "${UPSTREAM}/${branch}"
@@ -77,6 +78,10 @@ cd "${PREFIX}"
 
 
 for repo in "${FLATCAR_REPOS[@]}"; do
+  # Systemd is handled below
+  if [ "${repo}" = "systemd" ]; then
+    continue
+  fi
   [ ! -d "${repo}" ] && git clone "git@github.com:flatcar-linux/${repo}"
 
   pushd "${repo}"
@@ -87,32 +92,14 @@ for repo in "${FLATCAR_REPOS[@]}"; do
   popd
 done
 
-# Deal with systemd repo, which needs to pull both coreos and upstream stable repo
-# (https://github.com/systemd/systemd-stable).
-# Note, at the moment the upstream stable repo is merged only by the edge channel,
-# not by stable etc.
+# The systemd stable repo is our upstream, not coreos/systemd
 repo_systemd="systemd"
 
 [ ! -d "${repo_systemd}" ] && git clone "git@github.com:flatcar-linux/${repo_systemd}"
 
 pushd "${repo_systemd}"
-git remote add coreos "https://github.com/coreos/${repo_systemd}" || true
-git remote add stable "https://github.com/systemd/systemd-stable" || true
+git remote add upstream "https://github.com/systemd/systemd-stable" || true
 git fetch --all
-update-branches coreos origin 0
-
-update-systemd-branches coreos flatcar
-update-systemd-branches stable flatcar-edge
+update-branches upstream origin 1
 
 popd
-
-for repo in "${FLATCAR_REPOS_MANIFEST[@]}"; do
-  [ ! -d "${repo}" ] && git clone "git@github.com:flatcar-linux/${repo}"
-
-  pushd "${repo}"
-  git remote add upstream "https://github.com/coreos/${repo}" || true
-  git fetch --all
-  update-branches upstream origin 0
-
-  popd
-done
