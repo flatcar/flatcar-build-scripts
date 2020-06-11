@@ -59,6 +59,7 @@ def commits_to_pick(src="src", dst="dst"):
     commits_src_has_filtered = str(grep(commits_src_has_with_cherry,
                                         "-F", "-x", "-f", tmp_outfile,
                                         _ok_code=[1, 0])).strip().split("\n")
+    commits_src_has_filtered = [commit for commit in commits_src_has_filtered if commit != ""]
     if len(commits_src_has_filtered) > 0:
         git_log = git.show("-s", *commits_src_has_filtered)
     else:
