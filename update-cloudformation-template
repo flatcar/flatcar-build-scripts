@@ -177,7 +177,7 @@ mkdir -p files
 
 for c in alpha beta edge stable; do
     rm "$c.json" || true
-    curl -Lo "$c.json" "https://${c}.release.flatcar-linux.net/${ARCH}/current/flatcar_production_ami_all.json" || true
+    curl -s -S -f -Lo "$c.json" "https://${c}.release.flatcar-linux.net/${ARCH}/current/flatcar_production_ami_all.json" || true
     if [ -f "$c.json" ]; then
         generate_templates "$c" "${ARCH}"
         rm "$c.json"
