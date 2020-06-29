@@ -18,6 +18,8 @@ parser.add_argument("--coreos-overlay", type=str, help="Path to coreos-overlay r
 parser.add_argument("--no-color", dest="no_color", action="store_true", help="Don't pipe diff through colordiff")
 parser.add_argument("--no-commits", dest="no_commits", action="store_true", help="Don't log which commits are missing")
 parser.add_argument("--no-diffs", dest="no_diffs", action="store_true", help="Don't show diffs")
+parser.add_argument("--no-prs", dest="no_prs", action="store_true", help="Don't show PR links for merge commits "
+    "(ignoring cherry picks without a merge commit as cherry-pick-for can do)")
 parser.add_argument("--diff-style", choices=["standard", "word-diff", "icdiff", "colordiff", "delta"],
                     help="Instead of standard git diff, use either git --word-diff, git icdiff, or pipe the existing diff through colordiff or delta")
 parser.set_defaults(ours="HEAD", coreos_overlay=".", no_color=False, no_commits=False, no_diffs=False)
@@ -67,6 +69,19 @@ def commits_to_pick(src="src", dst="dst"):
     os.remove(tmp_outfile)
     return git_log
 
+def pull_requests_for_merge_commits(src="src", dst="dst", repo="repo"):
+    # Prints links for GitHub PRs from merge commits.
+    # It uses merge commits which means that we don't find the PRs for cherry picks unless they have a merge commit
+    # as the cherry-pick-for script can do.
+    # The git log format is "subject#body" being "Merge pull request #NUMBER from BRANCH#PR_TITLE".
+    merge_commits = str(git.log("--merges", "--format=%s#%b", dst + ".." + src))
+    filtered = [line for line in merge_commits.split("\n") if "Merge pull request" in line and line.count("#") >= 2]
+    # Won't panic because we ensured above that two # characters exist
+    pr_and_titles = [(line.split("#")[1].split(" ")[0], "#".join(line.split("#")[2:])) for line in filtered]
+    # TODO: find the correct upstream GitHub organization (from branch?) if it isn't flatcar-linux but systemd or coreos
+    # Ignores PRs that tell that they only change the .github folder by having a title starting with ".github"
+    links = [title + ": https://github.com/flatcar-linux/" + repo + "/pull/" + pr for (pr, title) in pr_and_titles if not title.startswith(".github")]
+    return "\n".join(links)
 
 def display_difference(from_theirs, to_ours, name, recurse=False):
     # That means, show what "our" branch adds to "their" branch
@@ -100,6 +115,17 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
         desc = "Commits for " + name + " in their " + from_theirs + " but not in our " + to_ours
         print(desc_start, desc, desc_start + "\n")
         print(commits_they_have)
+        print("\n" + desc_end, desc, desc_end + "\n")
+    if not args.no_prs:
+        prs_we_have = pull_requests_for_merge_commits(src=to_ours, dst=from_theirs, repo=name)
+        prs_they_have = pull_requests_for_merge_commits(src=from_theirs, dst=to_ours, repo=name)
+        desc = "PRs (from merge commits) for " + name + " in our " + to_ours + " but not in their " + from_theirs
+        print(desc_start, desc, desc_start + "\n")
+        print(prs_we_have)
+        print("\n" + desc_end, desc, desc_end + "\n")
+        desc = "PRs (from merge commits) for " + name + " in their " + from_theirs + " but not in our " + to_ours
+        print(desc_start, desc, desc_start + "\n")
+        print(prs_they_have)
         print("\n" + desc_end, desc, desc_end + "\n")
     if recurse:
         theirs = ""
