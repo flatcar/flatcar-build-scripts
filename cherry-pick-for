@@ -8,9 +8,12 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "given GitHub PR, and pushes the branch"
   echo "Parameters:"
   echo "  --no-checkout-and-pull: If given instead of a branch, skips switching and pulling but pushes in the end"
+  echo "Environment variables:"
+  echo "  MERGE_COMMIT: Create a GitHub-style merge commit if a URL is given (defaults to 1)"
   exit 1
 fi
 
+MERGE_COMMIT="${MERGE_COMMIT-1}"
 BRANCH="$1"
 COMMITS="${@:2}"
 
@@ -33,9 +36,32 @@ if [ "${COMMITS:0:4}" = http ]; then
     exit 1
   fi
   echo "Going to merge $URL"
-  echo "If you need to resolve conflicts, follow the \"git status\" instructions, then run: git push"
+  if [ "$MERGE_COMMIT" = 1 ]; then
+    TEMP_BRANCH="pick$RANDOM"
+    META="$(curl -s -S -f -L "$URL" | grep '<title>.*GitHub</title>')"
+    PR_MSG1="Merge$(echo "$META" | cut -d '·' -f 2 | tr '[:upper:]' '[:lower:]')"
+    PR_MSG2="from$(echo "$META" | cut -d '·' -f 3)"
+    PR_TITLE="$(echo "$META" | cut -d '·' -f 1 | cut -d '>' -f 2-)"
+    COMMIT_MSG="$PR_MSG1$PR_MSG2
+
+$PR_TITLE"
+    git checkout -b "$TEMP_BRANCH"
+  fi
+  echo "If you need to resolve conflicts, follow the \"git status\" instructions, then run:"
+  if [ "${MERGE_COMMIT}" = 1 ]; then
+    echo "  git checkout -"
+    echo "  git merge --no-ff -m \"$COMMIT_MSG\" $TEMP_BRANCH"
+    echo "  git branch -d $TEMP_BRANCH"
+  fi
+  echo "  git push"
+  echo
   curl -s -S -f -L "$URL".patch | git am --3way
   echo "Successfully picked $URL"
+  if [ "$MERGE_COMMIT" = 1 ]; then
+    git checkout -
+    git merge --no-ff -m "$COMMIT_MSG" "$TEMP_BRANCH"
+    git branch -d "$TEMP_BRANCH"
+  fi
 else
   echo "Going to pick $COMMITS"
   for COMMIT in $COMMITS; do
