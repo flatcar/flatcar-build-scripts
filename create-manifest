@@ -2,13 +2,16 @@
 
 SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
-if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
   echo "This script will create a branch in the manifest repository checked out in $SCRIPTFOLDER/../manifest and push the branch and tag."
-  echo "The repository is cloned from github.com/flatcar-linux/manifest.git if it does not exist (origin must be flatcar-linux)."
-  echo "Set VERSION and SDK_VERSION as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.2.0 $0"
+  echo "The repository is cloned from github.com/flatcar-linux/manifest.git if it does not exist (origin in an existing repository must point there"
+  echo "or pushing fails or does some unwanted action)."
+  echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.2.0 CHANNEL=stable $0"
   echo
-  echo "By default the manifest references refs/heads/flatcar-build-VERSION for the repositories scripts, coreos-overlay, and portage-stable"
+  echo "It creates tags only for the manifest repository. Tags for the repositories scripts, coreos-overlay, and portage-stable should be"
+  echo "created first with ./tag-release (which can be rerun on build failures to introduce fixes without changing the manifest)."
+  echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories scripts, coreos-overlay, and portage-stable"
   echo "and simply refs/heads/master for the others because their revisions are defined by the CROS_WORKON_COMMIT in the respective ebuild files."
   echo "Set the environment variables SCRIPTS_REF, OVERLAY_REF, PORTAGE_REF, or DEFAULT_REF to specify any other reference."
   exit 1
@@ -16,12 +19,12 @@ fi
 
 set -euo pipefail
 
-SCRIPTS_REF="${SCRIPTS_REF-refs/heads/flatcar-build-$VERSION}"
-OVERLAY_REF="${OVERLAY_REF-refs/heads/flatcar-build-$VERSION}"
-PORTAGE_REF="${PORTAGE_REF-refs/heads/flatcar-build-$VERSION}"
+SCRIPTS_REF="${SCRIPTS_REF-refs/tags/$CHANNEL-$VERSION}"
+OVERLAY_REF="${OVERLAY_REF-refs/tags/$CHANNEL-$VERSION}"
+PORTAGE_REF="${PORTAGE_REF-refs/tags/$CHANNEL-$VERSION}"
 DEFAULT_REF="${DEFAULT_REF-refs/heads/master}"
 
-echo "Running with VERSION=$VERSION SDK_VERSION=$SDK_VERSION"
+echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION SDK_VERSION=$SDK_VERSION"
 echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
 echo "DEFAULT_REF=$DEFAULT_REF"
 
@@ -39,7 +42,7 @@ if [ "$(git status --porcelain || echo failed)" != "" ]; then
   exit 1
 fi
 
-BRANCHNAME="flatcar-build-$VERSION"
+BRANCHNAME="flatcar-$CHANNEL-$VERSION"
 EXISTS=0
 echo "Preparing branch"
 git checkout flatcar-master
@@ -62,7 +65,7 @@ FILENAME="build-$(echo "$VERSION" | cut -d '.' -f 1).xml"
 
 export SCRIPTS_REF OVERLAY_REF PORTAGE_REF DEFAULT_REF
 cat "$SCRIPTFOLDER/manifest-template.xml.envsubst" | envsubst '$SCRIPTS_REF $OVERLAY_REF $PORTAGE_REF $DEFAULT_REF' > "$FILENAME"
-# Note: appc-acbuild, appc-spec, rkt, and systemd always stay at refs/heads/master abecause they do not have flatcar-master or flatcar-build-VERSION branches
+# Note: appc-acbuild, appc-spec, rkt, and systemd always stay at refs/heads/master because they do not have flatcar-master or build branches
 
 ln -fs "$FILENAME" default.xml
 cp "$FILENAME" release.xml
@@ -73,8 +76,8 @@ git commit -m "build $VERSION" --author 'Flatcar Buildbot <buildbot@flatcar-linu
 echo "Pushing branch"
 
 git push --force-with-lease --set-upstream origin "$BRANCHNAME"
-echo "Deleting any existing tags"
 TAG="v$VERSION"
+echo "Deleting tag $TAG if it exists"
 git tag -d "$TAG" || echo "No local tags deleted"
 git push --delete origin "$TAG" || echo "No remote tags deleted"
 echo "Tagging commit"
