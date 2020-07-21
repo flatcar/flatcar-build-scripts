@@ -69,8 +69,20 @@ cat "$SCRIPTFOLDER/manifest-template.xml.envsubst" | envsubst '$SCRIPTS_REF $OVE
 
 ln -fs "$FILENAME" default.xml
 cp "$FILENAME" release.xml
+
+MAJOR="${VERSION%%.*}"
+
+echo "Creating maintenance.xml for flatcar-$MAJOR branches"
+
+SCRIPTS_REF="refs/heads/flatcar-$MAJOR"
+OVERLAY_REF="refs/heads/flatcar-$MAJOR"
+PORTAGE_REF="refs/heads/flatcar-$MAJOR"
+
+export SCRIPTS_REF OVERLAY_REF PORTAGE_REF DEFAULT_REF
+cat "$SCRIPTFOLDER/manifest-template.xml.envsubst" | envsubst '$SCRIPTS_REF $OVERLAY_REF $PORTAGE_REF $DEFAULT_REF' > maintenance.xml
+
 echo "Adding changed files"
-git add "$FILENAME" release.xml default.xml version.txt
+git add "$FILENAME" release.xml default.xml version.txt maintenance.xml
 echo "Committing manifest"
 git commit -m "build $VERSION" --author 'Flatcar Buildbot <buildbot@flatcar-linux.org>'
 echo "Pushing branch"
