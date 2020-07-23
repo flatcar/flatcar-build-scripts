@@ -17,8 +17,9 @@ function update-branches() {
   local PUSH_TAGS="${3}"
   local UPSTREAM_BRANCHES
 
-  # Exclude branches that contain "flatcar" and would overwrite our branches
-  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2- | grep -v flatcar)
+  # Exclude branches that contain "flatcar", "edge", or "main" and would overwrite our branches
+  # TODO: This should be configured per repo or we retire this script and rely on manual work
+  UPSTREAM_BRANCHES=$(git branch -r | grep "^[ ]*$UPSTREAM" | grep -v HEAD | cut -d/ -f 2- | grep -v flatcar | grep -v main | grep -v edge)
 
   for branch in ${UPSTREAM_BRANCHES}; do
     git checkout -B "${branch}" "${UPSTREAM}/${branch}"
