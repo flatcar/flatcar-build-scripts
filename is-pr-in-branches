@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DEFAULT_BRANCHES="origin/flatcar-master origin/flatcar-master-alpha origin/flatcar-master-beta origin/flatcar-master-edge"
+DEFAULT_BRANCHES="origin/main origin/flatcar-master-edge"
 
 if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 https://github.com/ORG/REPO/pull/NUMBER [branches...]"
@@ -20,6 +20,15 @@ BRANCHES="${@:2}"
 
 if [ "$BRANCHES" = "" ]; then
   BRANCHES="$DEFAULT_BRANCHES"
+  PROPAGATED_MAJOR=""
+  for CHANNEL in stable beta alpha; do
+    MAJOR=$(curl -s -S -f -L "https://${CHANNEL}.release.flatcar-linux.net/amd64-usr/current/version.txt" | grep -m 1 FLATCAR_BUILD= | cut -d = -f 2-)
+    if [[ "$MAJOR" != "$PROPAGATED_MAJOR" ]]; then
+      BRANCHES="$BRANCHES origin/flatcar-$MAJOR"
+    fi
+    PROPAGATED_MAJOR="$MAJOR"
+  done
+  echo "Using branches $BRANCHES"
 fi
 
 PATCH_TMP_FILE="$(mktemp)"
