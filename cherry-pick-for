@@ -10,9 +10,11 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "  --no-checkout-and-pull: If given instead of a branch, skips switching and pulling but pushes in the end"
   echo "Environment variables:"
   echo "  MERGE_COMMIT: Create a GitHub-style merge commit if a URL is given (defaults to 1)"
+  echo "  PUSH: Push the branch to upstream (defaults to 1)"
   exit 1
 fi
 
+PUSH="${PUSH-1}"
 MERGE_COMMIT="${MERGE_COMMIT-1}"
 BRANCH="$1"
 COMMITS="${@:2}"
@@ -78,5 +80,8 @@ else
   echo "Successfully picked $COMMITS"
 fi
 
-git push
+if [ "$PUSH" = 1 ]; then
+  echo "Pushing changes"
+  git push
+fi
 echo "Done"
