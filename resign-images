@@ -1,0 +1,87 @@
+#!/bin/bash
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Recreates detached signature files with a new gpg key"
+  echo "Usage is one of:"
+  echo "  GCS=0 FOLDER=…/image-files/ $0"
+  echo "  [GCS=1] CHANNEL=abc BOARD=(amd64-usr|arm64-usr) VERSION=x.y.z $0"
+  exit 0
+fi
+
+set -euo pipefail
+
+CHANNEL="${CHANNEL-}"
+BOARD="${BOARD-}"
+VERSION="${VERSION-}"
+GCS="${GCS-1}" # Download and upload to GCS
+FOLDER="${FOLDER-}" # or specify folder directly
+
+if [ "$GCS" = 1 ]; then
+  if [ -z "$CHANNEL" ] || [ -z "$BOARD" ] || [ -z "$VERSION" ]; then
+    echo "Error: Need to specify VERSION, CHANNEL, and BOARD as env var"
+    exit 1
+  fi
+  FOLDER="/var/tmp/resign/$CHANNEL/boards/$BOARD/$VERSION/"
+  mkdir -p "$FOLDER"
+  mkdir -p /tmp/signing
+  RCLONE=/tmp/signing/rclone-v1.53.1-linux-amd64/rclone
+  if [ ! -f "$RCLONE" ]; then
+    echo "Downloading rclone"
+    curl -L -o /tmp/signing/rclone-v1.53.1-linux-amd64.zip https://github.com/rclone/rclone/releases/download/v1.53.1/rclone-v1.53.1-linux-amd64.zip
+    unzip -u /tmp/signing/rclone-v1.53.1-linux-amd64.zip -d /tmp/signing/
+  else
+    echo "Using rclone under $RCLONE"
+  fi
+  if [ ! -f /tmp/signing/flatcar.json ]; then
+    echo "Paste GCS service account JSON credentials (…infra-secrets/gce-service-account.json) and finish with Ctrl-D"
+    cat > /tmp/signing/flatcar.json
+  else
+    echo "Using GCS credentials under /tmp/signing/flatcar.json"
+  fi
+  cat > /tmp/signing/rclone.conf <<EOF
+[gcs]
+type = google cloud storage
+client_id = 
+client_secret = 
+project_number = 5257126083
+service_account_file = /tmp/signing/flatcar.json
+object_acl = publicRead
+bucket_acl = publicRead
+location = us
+storage_class = MULTI_REGIONAL
+token = 
+EOF
+  echo "Downloading GCS $CHANNEL/boards/$BOARD/$VERSION to $FOLDER"
+  "$RCLONE" --config /tmp/signing/rclone.conf sync "gcs:flatcar-jenkins/$CHANNEL/boards/$BOARD/$VERSION/" "$FOLDER"
+else
+  if [ -z "$FOLDER" ]; then
+    echo "Error: Need to specify FOLDER as env var"
+    exit 1
+  fi
+fi
+
+echo "Re-signing $FOLDER"
+
+mkdir -p /tmp/signing/gpg
+export GNUPGHOME=/tmp/signing/gpg
+if [ ! -f /tmp/signing/gpg/priv.asc ]; then
+  echo "Paste the private key (…build-secrets/subkey…asc) and finish with Ctrl-D..."
+  cat > /tmp/signing/gpg/priv.asc
+else
+  echo "Using private key under /tmp/signing/gpg/priv.asc"
+fi
+
+gpg --import /tmp/signing/gpg/priv.asc
+
+for s in "$FOLDER"*sig; do
+  rm "$s"
+  gpg --batch --local-user "Flatcar Buildbot (Official Builds) <buildbot@flatcar-linux.org>" --output "$s" --detach-sign "$(dirname "$s")/$(basename "$s" .sig)"
+  gpg --verify "$s"
+done
+
+if [ "$GCS" = 1 ]; then
+  echo "Uploading to GCS $CHANNEL/boards/$BOARD/$VERSION"
+  "$RCLONE" --config /tmp/signing/rclone.conf sync "$FOLDER" "gcs:flatcar-jenkins/$CHANNEL/boards/$BOARD/$VERSION/"
+fi
+
+echo "Done. Now delete /tmp/signing/ and $FOLDER unless you want to continue with other releases."
