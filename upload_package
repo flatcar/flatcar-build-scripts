@@ -3,8 +3,8 @@
 set -e
 shopt -s expand_aliases
 
-if [ $# -ne 4 ]; then
-    echo "usage: ${0} DATA_DIR NEBRASKA_URL ORIGIN_SSH_URL VERSION"
+if [ $# -ne 4 ] && [ $# -ne 5 ]; then
+    echo "usage: ${0} DATA_DIR NEBRASKA_URL ORIGIN_SSH_URL VERSION [SUBDOMAIN]"
     exit 1
 fi
 
@@ -17,6 +17,7 @@ DATA_DIR="$1"
 NEBRASKA_URL="$2"
 ORIGIN_SSH_URL="$3"
 VERSION="$4"
+SUBDOMAIN="${5-update}"
 
 ARCH="${ARCH:-amd64-usr}"
 echo "Environment variable ARCH is specified as ${ARCH}"
@@ -27,7 +28,7 @@ COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_CHECKSUM_PATH="${UPDATE_PATH}.sha256"
-UPDATE_URL="https://update.release.flatcar-linux.net/${ARCH}/${VERSION}"/
+UPDATE_URL="https://${SUBDOMAIN}.release.flatcar-linux.net/${ARCH}/${VERSION}"/
 
 PAYLOAD_SIZE=$(stat --format='%s' "${UPDATE_PATH}")
 PAYLOAD_SHA1=$(cat "${UPDATE_PATH}" | openssl dgst -sha1 -binary | base64)
@@ -37,7 +38,7 @@ sha256sum "${UPDATE_PATH}" > "${UPDATE_CHECKSUM_PATH}"
 
 echo "Copying update payload to update server"
 
-SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/${ARCH}/${VERSION}/"
+SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/${SUBDOMAIN}/${ARCH}/${VERSION}/"
 ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
 scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
 
