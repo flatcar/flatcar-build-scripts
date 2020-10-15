@@ -10,6 +10,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
   echo "Set MODE_(A|B)=/developer/ to select a developer build"
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
+  echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
   exit 1
 fi
 
@@ -25,6 +26,7 @@ FILE="${FILE-flatcar_production_image_packages.txt}"
 VERSION_A="$1"
 VERSION_B="$2"
 FILESONLY="${FILESONLY-0}"
+CUTKERNEL="${CUTKERNEL-0}"
 
 A="$(mktemp "/tmp/$VERSION_A-XXXXXX")"
 B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
@@ -45,6 +47,9 @@ if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_de
     mv "$A.cut" "$A"
     cut -d . -f 2- "$B" > "$B.cut"
     mv "$B.cut" "$B"
+  fi
+  if [ "$CUTKERNEL" = 1 ]; then
+    sed -i -E 's#[0-9]+\.[0-9]+\.[0-9]+-flatcar#a.b.c-flatcar#g' "$A" "$B"
   fi
 fi
 
