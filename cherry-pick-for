@@ -43,7 +43,7 @@ if [ "${COMMITS:0:4}" = http ]; then
     META="$(curl -s -S -f -L "$URL" | grep '<title>.*GitHub</title>')"
     PR_MSG1="Merge$(echo "$META" | cut -d '·' -f 2 | tr '[:upper:]' '[:lower:]')"
     PR_MSG2="from$(echo "$META" | cut -d '·' -f 3)"
-    PR_TITLE="$(echo "$META" | cut -d '·' -f 1 | cut -d '>' -f 2-)"
+    PR_TITLE="$(echo "$META" | cut -d '·' -f 1 | cut -d '>' -f 2- | rev | cut -d ' ' -f 4- | rev)"
     COMMIT_MSG="$PR_MSG1$PR_MSG2
 
 $PR_TITLE"
