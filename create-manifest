@@ -30,11 +30,15 @@ echo "DEFAULT_REF=$DEFAULT_REF"
 
 cd "$SCRIPTFOLDER/.."
 
-if [ ! -d manifest ]; then
-  git clone git@github.com:flatcar-linux/manifest.git
+MANIFESTFOLDER="manifest"
+
+if [ -d "${MANIFESTFOLDER}" ]; then
+  git -C "${MANIFESTFOLDER}" fetch --prune origin
+else
+  git clone git@github.com:flatcar-linux/manifest.git "${MANIFESTFOLDER}"
 fi
 
-cd manifest
+cd "${MANIFESTFOLDER}"
 
 if [ "$(git status --porcelain || echo failed)" != "" ]; then
   echo "Error: Unexpected output of git status:"
