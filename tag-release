@@ -21,9 +21,14 @@ set -euo pipefail
 
 MAJOR="${VERSION%%.*}"
 
-SCRIPTS_REF="${SCRIPTS_REF-origin/flatcar-$MAJOR}"
-OVERLAY_REF="${OVERLAY_REF-origin/flatcar-$MAJOR}"
-PORTAGE_REF="${PORTAGE_REF-origin/flatcar-$MAJOR}"
+MAINT="flatcar"
+if [ "$CHANNEL" = lts ]; then
+  MAINT="flatcar-lts"
+fi
+
+SCRIPTS_REF="${SCRIPTS_REF-origin/$MAINT-$MAJOR}"
+OVERLAY_REF="${OVERLAY_REF-origin/$MAINT-$MAJOR}"
+PORTAGE_REF="${PORTAGE_REF-origin/$MAINT-$MAJOR}"
 
 echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION MAJOR=$MAJOR"
 echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
