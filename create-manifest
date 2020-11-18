@@ -76,11 +76,16 @@ cp "$FILENAME" release.xml
 
 MAJOR="${VERSION%%.*}"
 
-echo "Creating maintenance.xml for flatcar-$MAJOR branches"
+MAINT="flatcar"
+if [ "$CHANNEL" = lts ]; then
+  MAINT="flatcar-lts"
+fi
 
-SCRIPTS_REF="refs/heads/flatcar-$MAJOR"
-OVERLAY_REF="refs/heads/flatcar-$MAJOR"
-PORTAGE_REF="refs/heads/flatcar-$MAJOR"
+echo "Creating maintenance.xml for $MAINT-$MAJOR branches"
+
+SCRIPTS_REF="refs/heads/$MAINT-$MAJOR"
+OVERLAY_REF="refs/heads/$MAINT-$MAJOR"
+PORTAGE_REF="refs/heads/$MAINT-$MAJOR"
 
 export SCRIPTS_REF OVERLAY_REF PORTAGE_REF DEFAULT_REF
 cat "$SCRIPTFOLDER/manifest-template.xml.envsubst" | envsubst '$SCRIPTS_REF $OVERLAY_REF $PORTAGE_REF $DEFAULT_REF' > maintenance.xml
