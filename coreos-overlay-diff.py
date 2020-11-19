@@ -39,7 +39,7 @@ elif args.diff_style == "delta":
 
 warnings = []
 
-repo_map = {"coreos-init": "init", "cros-devutils": "dev-util", "gmerge": "dev-util",
+repo_map = {"coreos-init": "init", "cros-devutils": "flatcar-dev-util", "gmerge": "flatcar-dev-util",
             "fero-client": "fero", "actool": "spec"}
 
 
@@ -78,9 +78,9 @@ def pull_requests_for_merge_commits(src="src", dst="dst", repo="repo"):
     filtered = [line for line in merge_commits.split("\n") if "Merge pull request" in line and line.count("#") >= 2]
     # Won't panic because we ensured above that two # characters exist
     pr_and_titles = [(line.split("#")[1].split(" ")[0], "#".join(line.split("#")[2:])) for line in filtered]
-    # TODO: find the correct upstream GitHub organization (from branch?) if it isn't flatcar-linux but systemd or coreos
+    # TODO: find the correct upstream GitHub organization (from branch?) if it isn't kinvolk but systemd or coreos
     # Ignores PRs that tell that they only change the .github folder by having a title starting with ".github"
-    links = [title + ": https://github.com/flatcar-linux/" + repo + "/pull/" + pr for (pr, title) in pr_and_titles if not title.startswith(".github")]
+    links = [title + ": https://github.com/kinvolk/" + repo + "/pull/" + pr for (pr, title) in pr_and_titles if not title.startswith(".github")]
     return "\n".join(links)
 
 def display_difference(from_theirs, to_ours, name, recurse=False):
@@ -171,7 +171,7 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
                         os.chdir(base_folder + repo)
                     except FileNotFoundError:
                         print("Failed to enter repo directory for \"" + repo + "\", trying to clone it")
-                        git.clone("git@github.com:flatcar-linux/" + repo + ".git")
+                        git.clone("git@github.com:kinvolk/" + repo + ".git")
                         os.chdir(repo)
                     try:
                         git.fetch("github")
