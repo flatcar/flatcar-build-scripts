@@ -5,13 +5,13 @@ SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
   echo "This script will create a branch in the manifest repository checked out in $SCRIPTFOLDER/../manifest and push the branch and tag."
-  echo "The repository is cloned from github.com/flatcar-linux/manifest.git if it does not exist (origin in an existing repository must point there"
+  echo "The repository is cloned from github.com/kinvolk/manifest.git if it does not exist (origin in an existing repository must point there"
   echo "or pushing fails or does some unwanted action)."
   echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.2.0 CHANNEL=stable $0"
   echo
-  echo "It creates tags only for the manifest repository. Tags for the repositories scripts, coreos-overlay, and portage-stable should be"
+  echo "It creates tags only for the manifest repository. Tags for the repositories flatcar-scripts, coreos-overlay, and portage-stable should be"
   echo "created first with ./tag-release (which can be rerun on build failures to introduce fixes without changing the manifest)."
-  echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories scripts, coreos-overlay, and portage-stable"
+  echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories flatcar-scripts, coreos-overlay, and portage-stable"
   echo "and simply refs/heads/master for the others because their revisions are defined by the CROS_WORKON_COMMIT in the respective ebuild files."
   echo "Set the environment variables SCRIPTS_REF, OVERLAY_REF, PORTAGE_REF, or DEFAULT_REF to specify any other reference."
   exit 1
@@ -35,7 +35,7 @@ MANIFESTFOLDER="manifest"
 if [ -d "${MANIFESTFOLDER}" ]; then
   git -C "${MANIFESTFOLDER}" fetch --prune origin
 else
-  git clone git@github.com:flatcar-linux/manifest.git "${MANIFESTFOLDER}"
+  git clone git@github.com:kinvolk/manifest.git "${MANIFESTFOLDER}"
 fi
 
 cd "${MANIFESTFOLDER}"
