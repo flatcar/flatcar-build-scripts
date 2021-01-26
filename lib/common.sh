@@ -30,7 +30,6 @@ export FLATCAR_REPOS=(
   "seismograph"
   "shim"
   "sysroot-wrappers"
-  "systemd"
   "toolbox"
   "torcx"
   "update-ssh-keys"
