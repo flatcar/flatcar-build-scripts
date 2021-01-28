@@ -5,7 +5,7 @@ ARCH=${ARCH:-amd64-usr}
 TEMPLATE='
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Flatcar Linux on EC2: https://docs.flatcar-linux.org/os/booting-on-ec2/",
+  "Description": "Flatcar Linux on EC2: https://kinvolk.io/docs/flatcar-container-linux/latest/installing/cloud/aws-ec2/",
   "Mappings" : {
       "RegionMap" : {
 ###AMIS###
