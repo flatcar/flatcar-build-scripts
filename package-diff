@@ -11,6 +11,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Set MODE_(A|B)=/developer/ to select a developer build"
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
   echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
+  echo "Alternatively, set CALCSIZE=1 to sum up the file sizes from flatcar_production_image_contents.txt (/boot and /usr, excluding symlinks and directories)"
   exit 1
 fi
 
@@ -27,6 +28,7 @@ VERSION_A="$1"
 VERSION_B="$2"
 FILESONLY="${FILESONLY-0}"
 CUTKERNEL="${CUTKERNEL-0}"
+CALCSIZE="${CALCSIZE-0}"
 
 A="$(mktemp "/tmp/$VERSION_A-XXXXXX")"
 B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
@@ -50,6 +52,12 @@ if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_de
   fi
   if [ "$CUTKERNEL" = 1 ]; then
     sed -i -E 's#[0-9]+\.[0-9]+\.[0-9]+-flatcar#a.b.c-flatcar#g' "$A" "$B"
+  fi
+  if [ "$CALCSIZE" = 1 ]; then
+    A_SUM=$(grep -v '^d' "$A" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ - | bc)
+    echo "$(echo "${A_SUM}/1024/1024" | bc) MiB" > "$A"
+    B_SUM=$(grep -v '^d' "$B" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ - | bc)
+    echo "$(echo "${B_SUM}/1024/1024" | bc) MiB" > "$B"
   fi
 fi
 
