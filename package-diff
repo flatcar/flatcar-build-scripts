@@ -35,8 +35,8 @@ B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
 
 trap "rm -f \"$A\" \"$B\"" EXIT
 
-curl --location --silent -S -o "$A" https://storage.googleapis.com/flatcar-jenkins"$MODE_A""$CHANNEL_A"/boards/"$BOARD_A"/"$VERSION_A"/"$FILE"
-curl --location --silent -S -o "$B" https://storage.googleapis.com/flatcar-jenkins"$MODE_B""$CHANNEL_B"/boards/"$BOARD_B"/"$VERSION_B"/"$FILE"
+curl --location --silent -S -o "$A" https://bucket.release.flatcar-linux.net/flatcar-jenkins"$MODE_A""$CHANNEL_A"/boards/"$BOARD_A"/"$VERSION_A"/"$FILE"
+curl --location --silent -S -o "$B" https://bucket.release.flatcar-linux.net/flatcar-jenkins"$MODE_B""$CHANNEL_B"/boards/"$BOARD_B"/"$VERSION_B"/"$FILE"
 
 if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ]; then
   # Cut date and time noise away
