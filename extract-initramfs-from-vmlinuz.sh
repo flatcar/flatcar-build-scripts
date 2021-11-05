@@ -7,7 +7,8 @@
 # This will create out-dir/rootfs-0 directory that contains initramfs.
 
 set -euo pipefail
-
+# check for unzstd. Will abort the script with an error message if the tool is not present.
+unzstd -V >/dev/null
 fail() {
     echo "${*}" >&2
     exit 1
