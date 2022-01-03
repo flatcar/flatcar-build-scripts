@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: $0 OLD [NEW]"
+  echo "Shows the changes between the git references by assembling the changelog/ folder entries"
+  echo "Should be run in the folder that contains the coreos-overlay, portage-stable, and scripts repository folders."
+  echo "The NEW reference can be omitted and will then default to HEAD."
+  exit 1
+fi
+
+OLD="$1"
+NEW="${2-HEAD}"
+
+
+echo "Changes since ${OLD}"
+
+
+for section in security bugfixes changes updates; do
+  echo
+  case "${section}" in
+    security)
+      echo "Security fixes:"
+      ;;
+    bugfixes)
+      echo "Bug fixes:"
+      ;;
+    changes)
+      echo "Changes:"
+      ;;
+    updates)
+      echo "Updates:"
+      ;;
+    *)
+      echo "wrong cases" > /dev/stderr
+      exit 1
+  esac
+  echo
+  for repo in coreos-overlay portage-stable scripts; do
+    if [ "${repo}" = scripts ] && [ ! -e "${repo}" ]; then
+      repo="flatcar-scripts"
+    fi
+    # TODO: when the coreos-overlay and portage-stable submodules are pointing to the right version, use them directly instead of "-C repo"
+    # (and allow to operate in "scripts" instead of the top directory)
+    git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/"
+    # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
+    # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
+    # If an existing file got changed, we assume that this is just a correction for the old change but
+    # shouldn't be included in the release notes again.
+  done
+done
