@@ -2,13 +2,13 @@
 
 SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
-if [ "$VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+if [ "${SDK_VERSION}" = "" ] || [ "$VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
   echo "This script will create and push release tags in the repositories scripts, coreos-overlay, and portage-stable"
   echo "checked out in $SCRIPTFOLDER/../(scripts|coreos-overlay|portage-stable). The repositories will be cloned from"
   echo "github.com/flatcar-linux/(scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
   echo "repository must point there or pushing fails or does some unwanted action)."
-  echo "Set VERSION and CHANNEL as environment variables, e.g., VERSION=2345.3.0 CHANNEL=stable $0"
+  echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.0.0 CHANNEL=stable $0"
   echo
   echo "It creates tags in the form CHANNEL-VERSION for each of the three repositories. By default it fetches origin and"
   echo "creates a tag from origin/flatcar-MAJOR for each of the three repositories, with MAJOR being the first part of"
@@ -33,7 +33,8 @@ PORTAGE_REF="${PORTAGE_REF-origin/$MAINT-$MAJOR}"
 echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION MAJOR=$MAJOR"
 echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
 
-REPOS="scripts coreos-overlay portage-stable"
+REPOS="coreos-overlay portage-stable scripts"
+# scripts should be last as it binds the other two together as submodules, if they exist
 
 for REPO in ${REPOS}; do
   echo "Preparing ${REPO}"
@@ -44,16 +45,40 @@ for REPO in ${REPOS}; do
   cd "${REPO}"
   git fetch origin
   TAG="${CHANNEL}-${VERSION}"
-  echo "Deleting tag ${TAG} if it exists in ${REPO}"
-  git tag -d "$TAG" || echo "No local tags deleted"
-  git push --delete origin "$TAG" || echo "No remote tags deleted"
   [ "${REPO}" = "scripts" ] && REF="${SCRIPTS_REF}"
   [ "${REPO}" = "coreos-overlay" ] && REF="${OVERLAY_REF}"
   [ "${REPO}" = "portage-stable" ] && REF="${PORTAGE_REF}"
-  echo "Tagging ${REF} as ${TAG}"
-  git tag -s "${TAG}" -m "${TAG}" "${REF}"
-  echo "Pushing tag"
-  git push origin "${TAG}"
+  echo "Deleting tag ${TAG} if it exists in ${REPO}"
+  git tag -d "$TAG" || echo "No local tags deleted"
+  git push --delete origin "$TAG" || echo "No remote tags deleted"
+  # Check if we have to update the submodules while tagging
+  if [ "${REPO}" = "scripts" ] && [ -d "sdk_container/src/third_party/" ] ; then
+    if [ "${REF}" != "origin/$MAINT-$MAJOR" ]; then
+      echo "Error: can't find the scripts branch to push the updated submodule to, you can't overwrite SCRIPTS_REF anymore"
+      exit 1
+    fi
+    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules"
+    git checkout "$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+    git pull || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
+    if [ "$(git log HEAD.."origin/$MAINT-$MAJOR")" != "" ] || ! git diff --quiet "origin/$MAINT-$MAJOR" ; then
+      echo "Error: local changes in your 'scripts' repo"
+      exit 1
+    fi
+    # Use a subshell to prevent "source" side effects
+    (
+      source sdk_lib/sdk_container_common.sh
+      source ci-automation/ci_automation_common.sh
+      update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
+      create_versionfile "${SDK_VERSION}" "${VERSION}"
+      SIGN=1 PUSH=1 update_and_push_version "${TAG}"
+    )
+  else
+    # Tag the other repos or the LTS scripts repo
+    echo "Tagging ${REF} as ${TAG}"
+    git tag -s "${TAG}" -m "${TAG}" "${REF}"
+    echo "Pushing tag"
+    git push origin "${TAG}"
+  fi
 done
 
 echo "Done"
