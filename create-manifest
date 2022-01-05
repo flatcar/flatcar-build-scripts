@@ -9,9 +9,9 @@ if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$
   echo "or pushing fails or does some unwanted action)."
   echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.2.0 CHANNEL=stable $0"
   echo
-  echo "It creates tags only for the manifest repository. Tags for the repositories flatcar-scripts, coreos-overlay, and portage-stable should be"
+  echo "It creates tags only for the manifest repository. Tags for the repositories scripts, coreos-overlay, and portage-stable should be"
   echo "created first with ./tag-release (which can be rerun on build failures to introduce fixes without changing the manifest)."
-  echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories flatcar-scripts, coreos-overlay, and portage-stable"
+  echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories scripts, coreos-overlay, and portage-stable"
   echo "and simply refs/heads/master for the others because their revisions are defined by the CROS_WORKON_COMMIT in the respective ebuild files."
   echo "Set the environment variables SCRIPTS_REF, OVERLAY_REF, PORTAGE_REF, or DEFAULT_REF to specify any other reference."
   exit 1

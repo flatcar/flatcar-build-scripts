@@ -4,9 +4,9 @@ SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
 if [ "$VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
-  echo "This script will create and push release tags in the repositories flatcar-scripts, coreos-overlay, and portage-stable"
-  echo "checked out in $SCRIPTFOLDER/../(flatcar-scripts|coreos-overlay|portage-stable). The repositories will be cloned from"
-  echo "github.com/kinvolk/(flatcar-scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
+  echo "This script will create and push release tags in the repositories scripts, coreos-overlay, and portage-stable"
+  echo "checked out in $SCRIPTFOLDER/../(scripts|coreos-overlay|portage-stable). The repositories will be cloned from"
+  echo "github.com/flatcar-linux/(scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
   echo "repository must point there or pushing fails or does some unwanted action)."
   echo "Set VERSION and CHANNEL as environment variables, e.g., VERSION=2345.3.0 CHANNEL=stable $0"
   echo
@@ -33,13 +33,13 @@ PORTAGE_REF="${PORTAGE_REF-origin/$MAINT-$MAJOR}"
 echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION MAJOR=$MAJOR"
 echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
 
-REPOS="flatcar-scripts coreos-overlay portage-stable"
+REPOS="scripts coreos-overlay portage-stable"
 
 for REPO in ${REPOS}; do
   echo "Preparing ${REPO}"
   cd "$SCRIPTFOLDER/.."
   if [ ! -d "${REPO}" ]; then
-    git clone "git@github.com:kinvolk/${REPO}.git"
+    git clone "git@github.com:flatcar-linux/${REPO}.git"
   fi
   cd "${REPO}"
   git fetch origin
@@ -47,7 +47,7 @@ for REPO in ${REPOS}; do
   echo "Deleting tag ${TAG} if it exists in ${REPO}"
   git tag -d "$TAG" || echo "No local tags deleted"
   git push --delete origin "$TAG" || echo "No remote tags deleted"
-  [ "${REPO}" = "flatcar-scripts" ] && REF="${SCRIPTS_REF}"
+  [ "${REPO}" = "scripts" ] && REF="${SCRIPTS_REF}"
   [ "${REPO}" = "coreos-overlay" ] && REF="${OVERLAY_REF}"
   [ "${REPO}" = "portage-stable" ] && REF="${PORTAGE_REF}"
   echo "Tagging ${REF} as ${TAG}"

@@ -30,7 +30,7 @@ fi
 . ./lib/common.sh
 
 if [ "${ALL_REPOS}" = "0" ]; then
-  FLATCAR_REPOS=("coreos-overlay" "portage-stable" "flatcar-scripts")
+  FLATCAR_REPOS=("coreos-overlay" "portage-stable" "scripts")
 fi
 
 REPOS_DIR=$(mktemp -d "${PWD}/.mirror-repos.XXXXXXXXXX")
@@ -48,7 +48,7 @@ for repo in "${FLATCAR_REPOS[@]}"; do
     continue
   fi
 
-  HEAD_URL="git@github.com:kinvolk/${repo}"
+  HEAD_URL="git@github.com:flatcar-linux/${repo}"
 
   [ ! -d "${repo}" ] && git clone "${HEAD_URL}"
 
