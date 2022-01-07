@@ -50,7 +50,7 @@ for repo in "${FLATCAR_REPOS[@]}"; do
 
   HEAD_URL="git@github.com:flatcar-linux/${repo}"
 
-  [ ! -d "${repo}" ] && git clone "${HEAD_URL}"
+  [ ! -d "${repo}" ] && git clone --recurse-submodules "${HEAD_URL}"
 
   pushd "${repo}"
 
