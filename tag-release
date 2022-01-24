@@ -52,7 +52,7 @@ for REPO in ${REPOS}; do
   git tag -d "$TAG" || echo "No local tags deleted"
   git push --delete origin "$TAG" || echo "No remote tags deleted"
   # Check if we have to update the submodules while tagging
-  if [ "${REPO}" = "scripts" ] && [ -d "sdk_container/src/third_party/" ] ; then
+  if [ "${REPO}" = "scripts" ] && git show "origin/$MAINT-$MAJOR":sdk_container/src > /dev/null 2>/dev/null ; then
     if [ "${REF}" != "origin/$MAINT-$MAJOR" ]; then
       echo "Error: can't find the scripts branch to push the updated submodule to, you can't overwrite SCRIPTS_REF anymore"
       exit 1
