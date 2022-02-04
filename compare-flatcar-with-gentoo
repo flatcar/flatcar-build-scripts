@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+shopt -s extglob
+
 this_dir="$(dirname "${0}")"
 
 : ${COREOS_OVERLAY:="${this_dir}/coreos-overlay/main//"}
@@ -13,9 +15,7 @@ drop_trailing_slash() {
 
     local -n var_ref="${var_name}"
 
-    while [[ "${var_ref}" != "${var_ref%*/}" ]]; do
-        var_ref="${var_ref%*/}"
-    done
+    var_ref="${var_ref%%*(/)}"
 }
 
 drop_trailing_slash PORTAGE_STABLE
@@ -53,7 +53,8 @@ strip_leading_zeros() {
 
     local -n num_ref="${num_name}"
 
-    num_ref="$(echo "${num_ref}" | sed -e 's/^0*//')"
+    # strip all leading zeros, will work only if extglob is enabled
+    num_ref="${num_ref##*(0)}"
 
     if [[ -z "${num_ref}" ]]; then
         num_ref='0'
@@ -64,7 +65,9 @@ get_plain_version() {
     local ver="${1}"
     local arr_name="${2}"
 
-    ver="$(echo "${ver}" | sed -e 's/[-_].*//')"
+    # strip everything after first underline or dash, whichever comes
+    # first, so for strings like 1.2.3_alpha or 1.2.3-r2 we get 1.2.3
+    ver="${ver%%[-_]*}"
     IFS='.' read -ra "${arr_name}" <<< "${ver}"
 
     local i
@@ -84,8 +87,8 @@ split_last_version_field() {
     local -n num_ref="${num_name}"
     local -n word_ref="${word_name}"
 
-    num_ref="$(echo "${field}" | sed -e 's/[a-z]*$//')"
-    word_ref="$(echo "${field}" | sed -e 's/^[0-9]*//')"
+    num_ref="${field%%*([a-z])}"
+    word_ref="${field##*([0-9])}"
 
     strip_leading_zeros "${num_name}"
 }
@@ -93,8 +96,15 @@ split_last_version_field() {
 get_suffixes() {
     local ver="${1}"
     local arr_name="${2}"
+    local ver_tmp
 
-    ver="$(echo "${ver}" | sed -e 's/^[0-9]*\(\.[0-9]*\)*[a-z]\?//' -e 's/^_//' -e 's/-.*//')"
+    if [[ ! "${ver}" =~ _ ]]; then
+        local -n arr_ref="${arr_name}"
+        arr_ref=()
+        return
+    fi
+    ver_tmp="${ver#*_}"
+    ver="${ver_tmp%-*}"
     IFS='_' read -ra "${arr_name}" <<< "${ver}"
 }
 
@@ -106,8 +116,8 @@ split_suffix() {
     local -n word_ref="${word_name}"
     local -n num_ref="${num_name}"
 
-    word_ref="$(echo "${suffix}" | sed -e 's/[0-9]*$//')"
-    num_ref="$(echo "${suffix}" | sed -e 's/^[a-z]*//')"
+    word_ref="${suffix%%*([0-9])}"
+    num_ref="${suffix##*([a-z])}"
 
     strip_leading_zeros "${num_name}"
 }
@@ -118,10 +128,11 @@ get_revision() {
 
     local -n rev_ref="${rev_name}"
 
-    # s/// - replace stuff
-    # t - if replacement suceeded, quit now, otherwise run next command
-    # d - delete the line, so sed will print nothing
-    rev_ref=$(echo "${version}" | sed -e 's/.*-r\([0-9]*\)$/\1/; t; d')
+    if [[ ! "${version}" =~ '-' ]]; then
+        rev_ref='0'
+        return
+    fi
+    rev_ref="${version##*-r}"
 
     strip_leading_zeros "${rev_name}"
 }
@@ -302,21 +313,21 @@ REPO_PAIRS=(
 
 get_repo() {
     local pair="${1}"
-    printf '%s' "${pair}" | cut -f2- -d:
+    echo -n "${pair#*:}"
 }
 
 get_name() {
     local pair="${1}"
-    printf '%s' "${pair}" | cut -f1 -d:
+    echo -n "${pair%%:*}"
 }
 
 cut_leading_path() {
     local path="${1}"
-    local path_len="$(printf '%s' "${path}" | wc -m)"
-    # +1 to make it an index to the character after slash
-    local pkg_index=$((path_len + 1))
-
-    cut --characters "${pkg_index}-"
+    local len="${#path}"
+    local line
+    while read -r line; do
+        echo "${line:${len}}"
+    done
 }
 
 cut_leading_dir() {
@@ -335,7 +346,8 @@ if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs"
             if [[ ! -e "${WORKDIR}/${name}-pkgs" ]]; then
                 repo="$(get_repo "${p}")"
                 echo "finding all packages in ${name} (${repo})"
-                find "${repo}" -mindepth 3 -name '*.ebuild' -exec dirname {} \; |
+                find "${repo}" -mindepth 3 -name '*.ebuild' |
+                    sed -e 's!/[^/]*$!!' |
                     sort -u |
                     cut_leading_dir "${repo}" >"${WORKDIR}/${name}-pkgs"
             fi
@@ -352,7 +364,7 @@ fi
 
 get_pkg_name() {
     local name="${1}"
-    printf '%s' "${name}" | cut -f2- -d/
+    echo -n "${name#*/}"
 }
 
 get_max_version() {
@@ -381,8 +393,11 @@ get_max_version() {
         ebuilds=( "${pkg_path_prefix}"*.ebuild )
 
         for e in "${ebuilds[@]}"; do
-            version="$(printf '%s' "${e}" | cut_leading_path "${pkg_path_prefix}" | sed -e 's/\.ebuild$//')"
-            # ignore versios like 9999 or 99999999
+            # strip prefix
+            version="$(cut_leading_path "${pkg_path_prefix}" <<<"${e}")"
+            # strip .ebuild
+            version="${version:0:-7}"
+            # ignore versions like 9999 or 99999999
             if [[ -z "${version//9}" ]]; then
                 continue
             fi
