@@ -24,7 +24,8 @@ echo "Environment variable ARCH is specified as ${ARCH}"
 
 COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
-. resty -W "${NEBRASKA_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN"
+. resty -W "${NEBRASKA_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN" \
+	-H "Accept: application/json" -H "Content-Type: application/json"
 
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_CHECKSUM_PATH="${UPDATE_PATH}.sha256"
