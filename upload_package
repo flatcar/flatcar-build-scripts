@@ -27,6 +27,21 @@ COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 . resty -W "${NEBRASKA_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN" \
 	-H "Accept: application/json" -H "Content-Type: application/json"
 
+function get_package_id() {
+	local tmpfile="$(mktemp)"
+	local package_id
+
+	GET /apps/"${COREOS_APP_ID}"/packages >& ${tmpfile}
+	if jq -e 'has("packages")' ${tmpfile} > /dev/null; then
+		package_id=$(cat ${tmpfile} | jq '.packages' | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
+	else
+		package_id=$(cat ${tmpfile} | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
+	fi
+	rm -f ${tmpfile}
+
+	echo ${package_id}
+}
+
 UPDATE_PATH="${DATA_DIR}/flatcar_production_update.gz"
 UPDATE_CHECKSUM_PATH="${UPDATE_PATH}.sha256"
 UPDATE_URL="https://${SUBDOMAIN}.release.flatcar-linux.net/${ARCH}/${VERSION}"/
@@ -54,7 +69,7 @@ else
   exit 1
 fi
 
-if ! PACKAGE_ID=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1 | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id'); then
+if ! PACKAGE_ID=$(get_package_id); then
 	echo "Failed to get metadata from Nebraska."
 	echo "Please make sure that you have configured a valid GITHUB_TOKEN."
 	exit 1
