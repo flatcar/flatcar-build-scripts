@@ -80,15 +80,16 @@ echo "Uploading update payload"
 if [ -z "${PACKAGE_ID}" ]; then
     if ! PACKAGE_ID=$(POST /apps/"${COREOS_APP_ID}"/packages " \
         {
-            \"filename\": \"$(basename ${UPDATE_PATH})\",
-            \"description\": \"Flatcar Linux ${VERSION}\",
-            \"url\": \"${UPDATE_URL}\",
-            \"version\": \"${VERSION}\",
-            \"type\": 1,
-            \"size\": \"${PAYLOAD_SIZE}\",
-            \"hash\": \"${PAYLOAD_SHA1}\",
             \"application_id\": \"${COREOS_APP_ID}\",
             \"arch\": ${ARCH_ID},
+            \"channels_blacklist\": [],
+            \"description\": \"Flatcar Linux ${VERSION}\",
+            \"filename\": \"$(basename ${UPDATE_PATH})\",
+            \"hash\": \"${PAYLOAD_SHA1}\",
+            \"size\": \"${PAYLOAD_SIZE}\",
+            \"type\": 1,
+            \"url\": \"${UPDATE_URL}\",
+            \"version\": \"${VERSION}\",
             \"flatcar_action\":
                 {
                     \"sha256\": \"${PAYLOAD_SHA256}\"
