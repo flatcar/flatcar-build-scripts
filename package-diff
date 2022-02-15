@@ -54,10 +54,10 @@ if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_de
     sed -i -E 's#[0-9]+\.[0-9]+\.[0-9]+-flatcar#a.b.c-flatcar#g' "$A" "$B"
   fi
   if [ "$CALCSIZE" = 1 ]; then
-    A_SUM=$(grep -v '^d' "$A" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ - | bc)
-    echo "$(echo "${A_SUM}/1024/1024" | bc) MiB" > "$A"
-    B_SUM=$(grep -v '^d' "$B" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ - | bc)
-    echo "$(echo "${B_SUM}/1024/1024" | bc) MiB" > "$B"
+    A_SUM=$(($(grep -v '^d' "$A" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    echo "$((${A_SUM}/1024/1024)) MiB" > "$A"
+    B_SUM=$(($(grep -v '^d' "$B" | grep -v '^l' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    echo "$((${B_SUM}/1024/1024)) MiB" > "$B"
   fi
 fi
 
