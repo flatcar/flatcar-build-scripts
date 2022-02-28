@@ -177,11 +177,13 @@ get_diff() {
         return
     fi
     filter_common_pkgs
-    { diff "${WORKDIR}/"{amd,arm}'_filtered_pkgs' || :; } >"${WORKDIR}/diff_output"
+    { diff -u "${WORKDIR}/"{amd,arm}'_filtered_pkgs' || :; } >"${WORKDIR}/diff_output"
 }
 
 get_diff
 if [[ -s "${WORKDIR}/diff_output" ]]; then
-    printf '< AMD\n> ARM\n\n'
     cat "${WORKDIR}/diff_output"
+    exit 1
 fi
+
+exit 0
