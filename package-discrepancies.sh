@@ -1,17 +1,70 @@
 #!/bin/bash
 
-# print a diff of common packages between arm64 and amd64 production
+# Print a diff of common packages between arm64 and amd64 production
 # and container images to see if there are packages that have
-# differing versions between arches
+# differing versions between the architectures. When such packages
+# exist, the script prints the differences between arches and returns
+# with an exit status of 1. Otherwise, nothing is printed and the exit
+# status is 0.
 #
-# env vars:
-# CHANNEL - channel to use (alpha, beta, stable), defaults to stable
-# AMD_VERSION - a directory under https://stable.release.flatcar-linux.net/amd64-usr/, defaults to current
-# ARM_VERSION - a directory under https://stable.release.flatcar-linux.net/arm64-usr/, defaults to current
+# Example invocations:
+# ====================
 #
-# debug env vars:
-# WORKDIR - a working directory holding temporary files
-# KEEP_WORKDIR - do not remove the working directory if not empty
+# DEVELOPER=x AMD_VERSION=2022.02.27+dev-main-nightly-4976 ./package-discrepancies.sh
+#
+# CHANNEL=stable ARM_VERSION=3033.2.0 AMD_VERSION=3033.2.0 ./package-discrepancies.sh
+#
+# Environment variables:
+# ======================
+#
+# DEVELOPER:
+#
+# Use developer builds if variable is not empty. Setting this variable
+# requires setting AMD_VERSION and ARM_VERSION variables too.
+#
+# CHANNEL:
+#
+# Channel to use ("alpha", "beta", "stable", "developer"), defaults to
+# "alpha" for non-developer builds. Defaults to "developer" for
+# developer builds.
+#
+# AMD_VERSION:
+#
+# Version of amd64-usr build to use, defaults to "current" for
+# non-developer builds, and to "-" for developer builds. For
+# non-developer builds, version looks like "3033.2.2". For developer
+# builds, version usually looks like
+# "2022.02.25+dev-flatcar-master-4963" or
+# "2022.02.26+dev-main-nightly-4971". Version can also be "-" - in
+# this case it will copy the version from ARM_VERSION. If ARM_VERSION
+# is also "-", then the variables are treated as unspecified (falls
+# back to current for non-developer builds, bails out for developer
+# builds).
+#
+# ARM_VERSION:
+#
+# Version of arm64-usr build to use, defaults to "current" for
+# non-developer builds, and to "-" for developer builds. For
+# non-developer builds, version looks like "3033.2.2". For developer
+# builds, version usually looks like
+# "2022.02.25+dev-flatcar-master-4963" or
+# "2022.02.26+dev-main-nightly-4971". Version can also be "-" - in
+# this case it will copy the version from AMD_VERSION. If AMD_VERSION
+# is also "-", then the variables are treated as unspecified (falls
+# back to current for non-developer builds, bails out for developer
+# builds).
+#
+# Environment variables used for debugging:
+# =========================================
+#
+# WORKDIR:
+#
+# A path to a working directory that will hold temporary files.
+#
+# KEEP_WORKDIR:
+#
+# If specified to non-empty value, then the workdir will be printed to
+# standard error and will not be removed after script finishes.
 
 set -euo pipefail
 
