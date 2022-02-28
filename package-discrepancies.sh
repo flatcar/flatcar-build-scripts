@@ -17,14 +17,52 @@ set -euo pipefail
 
 this_dir="$(dirname "${0}")"
 
-: ${CHANNEL:='stable'}
-: ${AMD_VERSION:='current'}
-: ${ARM_VERSION:='current'}
+: ${DEVELOPER:=}
+
+if [[ -z "${DEVELOPER}" ]]; then
+    : ${CHANNEL:='alpha'}
+    : ${AMD_VERSION:='current'}
+    : ${ARM_VERSION:='current'}
+else
+    : ${CHANNEL:='developer'}
+    : ${AMD_VERSION:='-'}
+    : ${ARM_VERSION:='-'}
+fi
+
+if [[ "${AMD_VERSION}" = '-' ]]; then
+    AMD_VERSION="${ARM_VERSION}"
+fi
+if [[ "${ARM_VERSION}" = '-' ]]; then
+    ARM_VERSION="${AMD_VERSION}"
+fi
+
+if [[ -z "${DEVELOPER}" ]]; then
+    if [[ "${AMD_VERSION}" = '-' ]]; then
+        AMD_VERSION='current'
+    fi
+    if [[ "${ARM_VERSION}" = '-' ]]; then
+        ARM_VERSION='current'
+    fi
+else
+    if [[ "${AMD_VERSION}" = '-' ]]; then
+        echo 'Unspecified AMD64 image version' >&2
+        exit 1
+    fi
+    if [[ "${ARM_VERSION}" = '-' ]]; then
+        echo 'Unspecified ARM64 image version' >&2
+        exit 1
+    fi
+fi
 
 : ${WORKDIR:="${this_dir}/$(mktemp --directory 'pd.XXXXXXXXXX')"}
 : ${KEEP_WORKDIR:=}
 
-main_url="https://${CHANNEL}.release.flatcar-linux.net"
+if [[ -z "${DEVELOPER}" ]]; then
+    main_url="https://${CHANNEL}.release.flatcar-linux.net"
+else
+    main_url="https://bucket.release.flatcar-linux.net/flatcar-jenkins/developer/${CHANNEL}/boards"
+fi
+
 amd_part="amd64-usr/${AMD_VERSION}"
 arm_part="arm64-usr/${ARM_VERSION}"
 amd_url="${main_url}/${amd_part}"
