@@ -39,7 +39,7 @@ mkdir -p "${WORKDIR}"
 if [[ -z "${KEEP_WORKDIR}" ]]; then
     trap "rm -rf '${WORKDIR}'" EXIT
 else
-    echo "WORKDIR='${WORKDIR}'"
+    echo "WORKDIR='${WORKDIR}'" >&2
 fi
 
 ARCHES=('amd' 'arm')
