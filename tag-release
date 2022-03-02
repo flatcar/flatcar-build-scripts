@@ -58,7 +58,7 @@ for REPO in ${REPOS}; do
       exit 1
     fi
     echo "Checking out scripts branch $MAINT-$MAJOR to update submodules"
-    git checkout "$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+    git checkout -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
     git pull || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
     if [ "$(git log HEAD.."origin/$MAINT-$MAJOR")" != "" ] || ! git diff --quiet "origin/$MAINT-$MAJOR" ; then
       echo "Error: local changes in your 'scripts' repo"
