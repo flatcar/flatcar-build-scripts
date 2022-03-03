@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+FETCH="${FETCH-1}"
+
 if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 OLD [NEW]"
   echo "Shows the changes between the git references by assembling the changelog/ folder entries"
@@ -40,9 +42,12 @@ for section in security bugfixes changes updates; do
     if [ "${repo}" = scripts ] && [ ! -e "${repo}" ]; then
       repo="flatcar-scripts"
     fi
+    if [ "${FETCH}" = 1 ]; then
+      git -C "${repo}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
+    fi
     # TODO: when the coreos-overlay and portage-stable submodules are pointing to the right version, use them directly instead of "-C repo"
     # (and allow to operate in "scripts" instead of the top directory)
-    git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/"
+    git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/" || { echo "Error: git difftool failed" ; exit 1 ; }
     # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
     # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
     # If an existing file got changed, we assume that this is just a correction for the old change but
