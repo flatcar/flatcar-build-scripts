@@ -6,6 +6,9 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 (--no-checkout-and-pull|BRANCH) (COMMITS...|https://github.com/ORG/REPO/pull/NUMBER)"
   echo "Switches to the given branch, pulls it, cherry-picks all given commits or all commits of the"
   echo "given GitHub PR, and pushes the branch"
+  echo "WARNING: Does not work for changes on symbolic links! Cherry pick the PR's commits manually,"
+  echo "this helper script is not really needed anymore for change tracking because this is done through"
+  echo "files in the changelog/*/ folders now."
   echo "Parameters:"
   echo "  --no-checkout-and-pull: If given instead of a branch, skips switching and pulling but pushes in the end"
   echo "Environment variables:"
@@ -23,9 +26,9 @@ if [ "$BRANCH" = "--no-checkout-and-pull" ]; then
   BRANCH="HEAD"
 else
   echo "Checking out $BRANCH"
-  git checkout "$BRANCH"
+  git checkout --recurse-submodules "$BRANCH"
   echo "Pulling $BRANCH"
-  git pull
+  git pull --recurse-submodules
 fi
 
 # Remove BRANCH from arguments to get the COMMITS to the front
@@ -60,7 +63,7 @@ $PR_TITLE"
   curl -s -S -f -L "$URL".patch | git am --3way
   echo "Successfully picked $URL"
   if [ "$MERGE_COMMIT" = 1 ]; then
-    git checkout -
+    git checkout --recurse-submodules -
     git merge --no-ff -m "$COMMIT_MSG" "$TEMP_BRANCH"
     git branch -d "$TEMP_BRANCH"
   fi
