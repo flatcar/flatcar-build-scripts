@@ -24,6 +24,10 @@ debug() {
     stderr "$@"
 }
 
+warn() {
+    stderr 'WARNING:' "$@"
+}
+
 drop_trailing_slash() {
     local var_name="${1}"
 
@@ -489,6 +493,16 @@ percent() {
 
     bc <<< "scale=2; (${num} * 100) / ${den}"
 }
+
+duplicates="$(cat "${WORKDIR}/duplicated-pkgs" | wc -l)"
+
+if [[ "${duplicates}" -gt 0 ]]; then
+    warn 'There are duplicated packages in portage-stable and coreos-overlay.'
+    warn 'Some stats may be skewed or make no sense.'
+    warn 'BEGIN DUPLICATES'
+    cat "${WORKDIR}/duplicated-pkgs" >&2
+    warn 'END DUPLICATES'
+fi
 
 equal="$(grep -e 'result:=' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 outdated="$(grep -e 'result:>' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
