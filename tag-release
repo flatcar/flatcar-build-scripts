@@ -70,7 +70,7 @@ for REPO in ${REPOS}; do
       source ci-automation/ci_automation_common.sh
       update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
       create_versionfile "${SDK_VERSION}" "${VERSION}"
-      SIGN=1 PUSH=1 update_and_push_version "${TAG}"
+      SIGN=1 update_and_push_version "${TAG}" true
     )
   else
     # Tag the other repos or the LTS scripts repo
