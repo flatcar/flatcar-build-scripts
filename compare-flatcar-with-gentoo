@@ -9,6 +9,8 @@ this_dir="$(dirname "${0}")"
 : ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay/main"}
 : ${PORTAGE_STABLE:="${this_dir}/../portage-stable/main"}
 : ${GENTOO:="${this_dir}/../gentoo"}
+: ${WORKDIR:="$(mktemp --directory "${this_dir}/cfwg.XXXXXXXXXX")"}
+: ${KEEP_WORKDIR:=}
 : ${VERBOSE:=}
 
 stderr() {
@@ -33,6 +35,15 @@ drop_trailing_slash() {
 drop_trailing_slash PORTAGE_STABLE
 drop_trailing_slash COREOS_OVERLAY
 drop_trailing_slash GENTOO
+drop_trailing_slash WORKDIR
+
+mkdir -p "${WORKDIR}"
+
+if [[ -z "${KEEP_WORKDIR}" ]]; then
+    trap "rm -rf '${WORKDIR}'" EXIT
+else
+    debug "WORKDIR='${WORKDIR}'" >&2
+fi
 
 debug "PORTAGE_STABLE=${PORTAGE_STABLE}"
 debug "COREOS_OVERLAY=${COREOS_OVERLAY}"
@@ -313,10 +324,6 @@ gentoo_vercmp() {
     res_ref='='
 }
 
-: ${WORKDIR:="${this_dir}/$(mktemp --directory 'cfwg.XXXXXXXXXX')"}
-
-drop_trailing_slash WORKDIR
-
 REPO_PAIRS=(
     "gentoo:${GENTOO}"
     "portage-stable:${PORTAGE_STABLE}"
@@ -347,8 +354,6 @@ cut_leading_dir() {
 
     cut_leading_path "${path}/"
 }
-
-debug "work dir: ${WORKDIR}"
 
 if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs" ]]; then
     if [[ ! -e "${WORKDIR}/flatcar-pkgs" ]]; then
