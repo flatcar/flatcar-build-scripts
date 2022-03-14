@@ -504,12 +504,17 @@ if [[ "${duplicates}" -gt 0 ]]; then
     warn 'END DUPLICATES'
 fi
 
-equal="$(grep -e 'result:=' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-outdated="$(grep -e 'result:>' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-outdated_rel="$(grep -e 'result:>r' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-outdated_suf="$(grep -e 'result:>s' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-outdated_ver="$(grep -e 'result:>v' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-newer="$(grep -e 'result:<' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+# non-failing grep
+nfgrep() {
+    grep "$@" || :
+}
+
+equal="$(nfgrep -e 'result:=' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+outdated="$(nfgrep -e 'result:>' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+outdated_rel="$(nfgrep -e 'result:>r' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
+newer="$(nfgrep -e 'result:<' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 total="$(cat "${WORKDIR}/flatcar-pkgs" | wc -l)"
 total_common="$(cat "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 ours="$(cat "${WORKDIR}/flatcar-only-pkgs" | wc -l)"
