@@ -98,7 +98,7 @@ mkdir -p "${WORKDIR}"
 if [[ -z "${KEEP_WORKDIR}" ]]; then
     trap "rm -rf '${WORKDIR}'" EXIT
 else
-    debug "WORKDIR='${WORKDIR}'" >&2
+    debug "WORKDIR='${WORKDIR}'"
 fi
 
 debug "PORTAGE_STABLE=${PORTAGE_STABLE}"
@@ -552,7 +552,7 @@ if [[ "${duplicates}" -gt 0 ]]; then
     warn 'There are duplicated packages in portage-stable and coreos-overlay.'
     warn 'Some stats may be skewed or make no sense.'
     warn 'BEGIN DUPLICATES'
-    cat "${WORKDIR}/duplicated-pkgs" >&2
+    cat "${WORKDIR}/duplicated-pkgs" >/dev/stderr
     warn 'END DUPLICATES'
 fi
 
