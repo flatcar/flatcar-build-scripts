@@ -355,28 +355,50 @@ cut_leading_dir() {
     cut_leading_path "${path}/"
 }
 
-if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs" ]]; then
+if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/portage-stable-flatcar-only-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/coreos-overlay-flatcar-only-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/flatcar-only-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/portage-stable-common-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/coreos-overlay-common-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/common-pkgs" ]]; then
     if [[ ! -e "${WORKDIR}/flatcar-pkgs" ]]; then
         for p in "gentoo:${GENTOO}" "portage-stable:${PORTAGE_STABLE}" "coreos-overlay:${COREOS_OVERLAY}"; do
             name="$(get_name "${p}")"
 
-            if [[ ! -e "${WORKDIR}/${name}-pkgs" ]]; then
+            if [[ ! -e "${WORKDIR}/${name}-pkgs" ]] || \
+                   [[ ! -e "${WORKDIR}/${name}-hash" ]] || \
+                   [[ ! -e "${WORKDIR}/${name}-date" ]]; then
                 repo="$(get_repo "${p}")"
                 debug "finding all packages in ${name} (${repo})"
                 find "${repo}" -mindepth 3 -name '*.ebuild' |
                     sed -e 's!/[^/]*$!!' |
                     sort -u |
                     cut_leading_dir "${repo}" >"${WORKDIR}/${name}-pkgs"
+                git -C "${repo}" log -1 --pretty='%H' >"${WORKDIR}/${name}-hash"
+                git -C "${repo}" log -1 --pretty='%cD' >"${WORKDIR}/${name}-date"
             fi
         done
 
         cat "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/portage-stable-pkgs" | sort -u >"${WORKDIR}/flatcar-pkgs"
     fi
 
+    debug "finding all duplicated packages in portage-stable and coreos-overlay"
+    comm -1 -2 "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/portage-stable-pkgs" >"${WORKDIR}/duplicated-pkgs"
+
+    debug "finding all flatcar-only packages in portage-stable"
+    comm -2 -3 "${WORKDIR}/portage-stable-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/portage-stable-flatcar-only-pkgs"
+    debug "finding all flatcar-only packages in coreos-overlay"
+    comm -2 -3 "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/coreos-overlay-flatcar-only-pkgs"
     debug "finding all flatcar-only packages"
-    comm -2 -3 "${WORKDIR}/flatcar-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/flatcar-only-pkgs"
+    cat "${WORKDIR}/portage-stable-flatcar-only-pkgs" "${WORKDIR}/coreos-overlay-flatcar-only-pkgs" | sort -u >"${WORKDIR}/flatcar-only-pkgs"
+
+    debug "finding all common packages in portage-stable"
+    comm -1 -2 "${WORKDIR}/portage-stable-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/portage-stable-common-pkgs"
+    debug "finding all common packages in coreos-overlay"
+    comm -1 -2 "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/coreos-overlay-common-pkgs"
     debug "finding all common packages"
-    comm -1 -2 "${WORKDIR}/flatcar-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/common-pkgs"
+    cat "${WORKDIR}/coreos-overlay-common-pkgs" "${WORKDIR}/portage-stable-common-pkgs" | sort -u >"${WORKDIR}/common-pkgs"
 fi
 
 get_pkg_name() {
@@ -428,8 +450,10 @@ get_max_version() {
     done
 }
 
-if [[ ! -e "${WORKDIR}/common-pkgs-max-versions" ]]; then
-    debug "finding max versions of common packages"
+find_max_versions() {
+    local input="${1}"
+    local output="${2}"
+
     while read -r line; do
         debug "  - ${line}"
         gentoo_max=''
@@ -438,8 +462,23 @@ if [[ ! -e "${WORKDIR}/common-pkgs-max-versions" ]]; then
         get_max_version "${line}" flatcar_max "${PORTAGE_STABLE}" "${COREOS_OVERLAY}"
         result='='
         gentoo_vercmp "${gentoo_max}" "${flatcar_max}" result
-        printf '%s %s\n' "${line}" "gentoo:${gentoo_max} flatcar:${flatcar_max} result:${result}" >>"${WORKDIR}/common-pkgs-max-versions"
-    done < "${WORKDIR}/common-pkgs"
+        printf '%s %s\n' "${line}" "gentoo:${gentoo_max} flatcar:${flatcar_max} result:${result}" >>"${output}"
+    done < "${input}"
+}
+
+if [[ ! -e "${WORKDIR}/portage-stable-common-pkgs-max-versions" ]]; then
+    debug "finding max versions of common packages in portage-stable"
+    find_max_versions "${WORKDIR}/portage-stable-common-pkgs" "${WORKDIR}/portage-stable-common-pkgs-max-versions"
+fi
+
+if [[ ! -e "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" ]]; then
+    debug "finding max versions of common packages in coreos-overlay"
+    find_max_versions "${WORKDIR}/coreos-overlay-common-pkgs" "${WORKDIR}/coreos-overlay-common-pkgs-max-versions"
+fi
+
+if [[ ! -e "${WORKDIR}/common-pkgs-max-versions" ]]; then
+    debug "finding max versions of common packages"
+    cat "${WORKDIR}/portage-stable-common-pkgs-max-versions" "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | sort -u >"${WORKDIR}/common-pkgs-max-versions"
 fi
 
 debug "done"
