@@ -1,5 +1,56 @@
 #!/bin/bash
 
+# This script tries to compare the package versions in portage-stable,
+# coreos-overlay and gentoo. When done, prints some statistics to
+# standard output.
+#
+# Example invocations:
+# ====================
+#
+# ./compare-flatcar-with-gentoo
+#
+# export COREOS_OVERLAY=../../co-repo
+# export PORTAGE_STABLE=../../ps-repo
+# export GENTOO=../../g-repo
+# export JSON=x
+# ./compare-flatcar-with-gentoo
+#
+# Environment variables:
+# ======================
+#
+# COREOS_OVERLAY:
+#
+# A path to the coreos-overlay git repository.
+#
+# PORTAGE_STABLE:
+#
+# A path to the portage-stable git repository.
+#
+# GENTOO:
+#
+# A path to the gentoo git repository.
+#
+# JSON:
+#
+# If not empty, print statistics in JSON format.
+#
+# Environment variables used for debugging:
+# =========================================
+#
+# WORKDIR:
+#
+# A path to a working directory that will hold temporary files.
+#
+# KEEP_WORKDIR:
+#
+# If specified to non-empty value, then the workdir will be printed to
+# standard error if verbose output is enabled and will not be removed
+# after script finishes.
+#
+# VERBOSE:
+#
+# Print debugging stuff to standard error.
+
 set -euo pipefail
 
 shopt -s extglob
