@@ -6,9 +6,9 @@ shopt -s extglob
 
 this_dir="$(dirname "${0}")"
 
-: ${COREOS_OVERLAY:="${this_dir}/coreos-overlay/main//"}
-: ${PORTAGE_STABLE:="${this_dir}/portage-stable/main//"}
-: ${GENTOO:="${this_dir}/gentoo//"}
+: ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay/main"}
+: ${PORTAGE_STABLE:="${this_dir}/../portage-stable/main"}
+: ${GENTOO:="${this_dir}/../gentoo"}
 
 drop_trailing_slash() {
     local var_name="${1}"
