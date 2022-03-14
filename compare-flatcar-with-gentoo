@@ -9,6 +9,7 @@ this_dir="$(dirname "${0}")"
 : ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay/main"}
 : ${PORTAGE_STABLE:="${this_dir}/../portage-stable/main"}
 : ${GENTOO:="${this_dir}/../gentoo"}
+: ${JSON:=}
 : ${WORKDIR:="$(mktemp --directory "${this_dir}/cfwg.XXXXXXXXXX")"}
 : ${KEEP_WORKDIR:=}
 : ${VERBOSE:=}
@@ -546,6 +547,9 @@ co_outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/coreos-overlay-common-pkgs-
 
 
 out_type='tabs'
+if [[ -n "${JSON}" ]]; then
+    out_type='json'
+fi
 
 out_init() {
     "${out_type}_out_init" "${@}"
@@ -593,6 +597,46 @@ tabs_out_end() {
 
 tabs_out_fini() {
     tabs -8
+}
+
+declare -a json_out_array
+
+json_drop_comma() {
+    local l="${#json_out_array[@]}"
+
+    if [[ "${l}" -eq 0 ]]; then
+        return
+    fi
+
+    local i=$((l - 1))
+
+    json_out_array[${i}]="${json_out_array[${i}]%,}"
+}
+
+json_out_init() {
+    json_out_array=('{')
+}
+
+json_out_start() {
+    json_out_array+=("	\"${*}\": {")
+}
+
+json_out_kv() {
+    local k="${1}"
+    local v="${2}"
+
+    json_out_array+=("		\"${k}\": \"${v}\",")
+}
+
+json_out_end() {
+    json_drop_comma
+    json_out_array+=('	},')
+}
+
+json_out_fini() {
+    json_drop_comma
+    json_out_array+=('}')
+    printf '%s\n' "${json_out_array[@]}"
 }
 
 out_init
