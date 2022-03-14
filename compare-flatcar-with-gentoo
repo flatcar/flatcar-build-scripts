@@ -509,32 +509,139 @@ nfgrep() {
     grep "$@" || :
 }
 
+ps_hash="$(cat "${WORKDIR}/portage-stable-hash")"
+ps_date="$(cat "${WORKDIR}/portage-stable-date")"
+co_hash="$(cat "${WORKDIR}/coreos-overlay-hash")"
+co_date="$(cat "${WORKDIR}/coreos-overlay-date")"
+gentoo_hash="$(cat "${WORKDIR}/gentoo-hash")"
+gentoo_date="$(cat "${WORKDIR}/gentoo-date")"
+
+total="$(cat "${WORKDIR}/flatcar-pkgs" | wc -l)"
+ps_pkgs="$(cat "${WORKDIR}/portage-stable-pkgs" | wc -l)"
+co_pkgs="$(cat "${WORKDIR}/coreos-overlay-pkgs" | wc -l)"
+ours="$(cat "${WORKDIR}/flatcar-only-pkgs" | wc -l)"
+total_common="$(cat "${WORKDIR}/common-pkgs" | wc -l)"
+ps_common="$(cat "${WORKDIR}/portage-stable-common-pkgs" | wc -l)"
+co_common="$(cat "${WORKDIR}/coreos-overlay-common-pkgs" | wc -l)"
+newer="$(nfgrep -e 'result:<' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 equal="$(nfgrep -e 'result:=' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 outdated="$(nfgrep -e 'result:>' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 outdated_rel="$(nfgrep -e 'result:>r' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
 outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-newer="$(nfgrep -e 'result:<' "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-total="$(cat "${WORKDIR}/flatcar-pkgs" | wc -l)"
-total_common="$(cat "${WORKDIR}/common-pkgs-max-versions" | wc -l)"
-ours="$(cat "${WORKDIR}/flatcar-only-pkgs" | wc -l)"
-ps_pkgs="$(cat "${WORKDIR}/portage-stable-pkgs" | wc -l)"
-co_pkgs="$(cat "${WORKDIR}/coreos-overlay-pkgs" | wc -l)"
 
-printf 'total packages:\t\t\t%s\t(%s%%)\n' "${total}" "$(percent "${total}" "${total}")"
-printf 'portage-stable:\t\t\t%s\t(%s%%)\n' "${ps_pkgs}" "$(percent "${ps_pkgs}" "${total}")"
-printf 'coreos-overlay:\t\t\t%s\t(%s%%)\n' "${co_pkgs}" "$(percent "${co_pkgs}" "${total}")"
-printf '\n'
-printf 'total packages:\t\t\t%s\t(%s%%)\n' "${total}" "$(percent "${total}" "${total}")"
-printf 'our packages:\t\t\t%s\t(%s%%)\n' "${ours}" "$(percent "${ours}" "${total}")"
-printf 'common packages:\t\t%s\t(%s%%)\n' "${total_common}" "$(percent "${total_common}" "${total}")"
-printf '\n'
-printf 'total common packages:\t\t%s\t(%s%%)\n' "${total_common}" "$(percent "${total_common}" "${total_common}")"
-printf 'outdated packages:\t\t%s\t(%s%%)\n' "${outdated}" "$(percent "${outdated}" "${total_common}")"
-printf 'equal packages:\t\t\t%s\t(%s%%)\n' "${equal}" "$(percent "${equal}" "${total_common}")"
-printf 'newer packages:\t\t\t%s\t(%s%%)\n' "${newer}" "$(percent "${newer}" "${total_common}")"
-printf '\n'
-printf 'all outdated packages:\t\t%s\t(%s%%)\n' "${outdated}" "$(percent "${outdated}" "${outdated}")"
-printf 'outdated release packages:\t%s\t(%s%%)\n' "${outdated_rel}" "$(percent "${outdated_rel}" "${outdated}")"
-printf 'outdated suffix packages:\t%s\t(%s%%)\n' "${outdated_suf}" "$(percent "${outdated_suf}" "${outdated}")"
-printf 'outdated version packages:\t%s\t(%s%%)\n' "${outdated_ver}" "$(percent "${outdated_ver}" "${outdated}")"
+ps_newer="$(nfgrep -e 'result:<' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+ps_equal="$(nfgrep -e 'result:=' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+ps_outdated="$(nfgrep -e 'result:>' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+ps_outdated_rel="$(nfgrep -e 'result:>r' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+ps_outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+ps_outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/portage-stable-common-pkgs-max-versions" | wc -l)"
+
+co_newer="$(nfgrep -e 'result:<' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+co_equal="$(nfgrep -e 'result:=' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+co_outdated="$(nfgrep -e 'result:>' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+co_outdated_rel="$(nfgrep -e 'result:>r' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+co_outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+co_outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
+
+
+out_type='tabs'
+
+out_init() {
+    "${out_type}_out_init" "${@}"
+}
+
+out_start() {
+    "${out_type}_out_start" "${@}"
+}
+
+out_kv() {
+    "${out_type}_out_kv" "${@}"
+}
+
+out_end() {
+    "${out_type}_out_end" "${@}"
+}
+
+out_fini() {
+    "${out_type}_out_fini" "${@}"
+}
+
+tabs_out_init() {
+    tabs 2 42 50 58
+}
+
+tabs_out_start() {
+    printf '%s:\n' "$*"
+}
+
+tabs_out_kv() {
+    local k="${1}"
+    local v="${2}"
+
+    if [[ "${#}" -gt 2 ]]; then
+        local p="${3}"
+        printf '\t%s:\t%s\t(%s%%)\n' "${k}" "${v}" "${p}"
+    else
+        printf '\t%s:\t%s\n' "${k}" "${v}"
+    fi
+}
+
+tabs_out_end() {
+    printf '\n'
+}
+
+tabs_out_fini() {
+    tabs -8
+}
+
+out_init
+
+out_start 'meta'
+out_kv 'portage-stable hash' "${ps_hash}"
+out_kv 'portage-stable date' "${ps_date}"
+out_kv 'coreos-overlay hash' "${co_hash}"
+out_kv 'coreos-overlay date' "${co_date}"
+out_kv 'gentoo hash' "${gentoo_hash}"
+out_kv 'gentoo date' "${gentoo_date}"
+out_end
+
+out_start 'general'
+out_kv 'total packages' "${total}"
+out_kv 'portage-stable' "${ps_pkgs}" "$(percent "${ps_pkgs}" "${total}")"
+out_kv 'coreos-overlay' "${co_pkgs}" "$(percent "${co_pkgs}" "${total}")"
+out_kv 'our packages' "${ours}" "$(percent "${ours}" "${total}")"
+out_kv 'common packages' "${total_common}" "$(percent "${total_common}" "${total}")"
+out_kv 'common packages in portage-stable' "${ps_common}" "$(percent "${ps_common}" "${total}")"
+out_kv 'common packages in coreos-overlay' "${co_common}" "$(percent "${co_common}" "${total}")"
+out_kv 'newer packages' "${newer}" "$(percent "${newer}" "${total}")"
+out_kv 'equal packages' "${equal}" "$(percent "${equal}" "${total}")"
+out_kv 'outdated packages' "${outdated}" "$(percent "${outdated}" "${total}")"
+out_kv 'outdated release packages' "${outdated_rel}" "$(percent "${outdated_rel}" "${total}")"
+out_kv 'outdated suffix packages' "${outdated_suf}" "$(percent "${outdated_suf}" "${total}")"
+out_kv 'outdated version packages' "${outdated_ver}" "$(percent "${outdated_ver}" "${total}")"
+out_end
+
+out_start 'portage-stable'
+out_kv 'total packages' "${ps_pkgs}"
+out_kv 'common packages' "${ps_common}" "$(percent "${ps_common}" "${ps_pkgs}")"
+out_kv 'newer packages' "${ps_newer}" "$(percent "${ps_newer}" "${ps_pkgs}")"
+out_kv 'equal packages' "${ps_equal}" "$(percent "${ps_equal}" "${ps_pkgs}")"
+out_kv 'all outdated packages' "${ps_outdated}" "$(percent "${ps_outdated}" "${ps_pkgs}")"
+out_kv 'outdated release packages' "${ps_outdated_rel}" "$(percent "${ps_outdated_rel}" "${ps_pkgs}")"
+out_kv 'outdated suffix packages' "${ps_outdated_suf}" "$(percent "${ps_outdated_suf}" "${ps_pkgs}")"
+out_kv 'outdated version packages' "${ps_outdated_ver}" "$(percent "${ps_outdated_ver}" "${ps_pkgs}")"
+out_end
+
+out_start 'coreos-overlay'
+out_kv 'total packages' "${co_pkgs}"
+out_kv 'common packages' "${co_common}" "$(percent "${co_common}" "${co_pkgs}")"
+out_kv 'newer packages' "${co_newer}" "$(percent "${co_newer}" "${co_pkgs}")"
+out_kv 'equal packages' "${co_equal}" "$(percent "${co_equal}" "${co_pkgs}")"
+out_kv 'all outdated packages' "${co_outdated}" "$(percent "${co_outdated}" "${co_pkgs}")"
+out_kv 'outdated release packages' "${co_outdated_rel}" "$(percent "${co_outdated_rel}" "${co_pkgs}")"
+out_kv 'outdated suffix packages' "${co_outdated_suf}" "$(percent "${co_outdated_suf}" "${co_pkgs}")"
+out_kv 'outdated version packages' "${co_outdated_ver}" "$(percent "${co_outdated_ver}" "${co_pkgs}")"
+out_end
+
+out_fini
