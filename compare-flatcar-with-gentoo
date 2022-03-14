@@ -9,6 +9,18 @@ this_dir="$(dirname "${0}")"
 : ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay/main"}
 : ${PORTAGE_STABLE:="${this_dir}/../portage-stable/main"}
 : ${GENTOO:="${this_dir}/../gentoo"}
+: ${VERBOSE:=}
+
+stderr() {
+    printf '%s\n' "$*" >/dev/stderr
+}
+
+debug() {
+    if [[ -z "${VERBOSE}" ]]; then
+        return
+    fi
+    stderr "$@"
+}
 
 drop_trailing_slash() {
     local var_name="${1}"
@@ -22,9 +34,9 @@ drop_trailing_slash PORTAGE_STABLE
 drop_trailing_slash COREOS_OVERLAY
 drop_trailing_slash GENTOO
 
-echo "p-s: ${PORTAGE_STABLE}"
-echo "c-o: ${COREOS_OVERLAY}"
-echo "g:   ${GENTOO}"
+debug "PORTAGE_STABLE=${PORTAGE_STABLE}"
+debug "COREOS_OVERLAY=${COREOS_OVERLAY}"
+debug "GENTOO=${GENTOO}"
 
 prepend_with() {
     local field_count="${1}"
@@ -336,7 +348,7 @@ cut_leading_dir() {
     cut_leading_path "${path}/"
 }
 
-echo "work dir: ${WORKDIR}"
+debug "work dir: ${WORKDIR}"
 
 if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs" ]]; then
     if [[ ! -e "${WORKDIR}/flatcar-pkgs" ]]; then
@@ -345,7 +357,7 @@ if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs"
 
             if [[ ! -e "${WORKDIR}/${name}-pkgs" ]]; then
                 repo="$(get_repo "${p}")"
-                echo "finding all packages in ${name} (${repo})"
+                debug "finding all packages in ${name} (${repo})"
                 find "${repo}" -mindepth 3 -name '*.ebuild' |
                     sed -e 's!/[^/]*$!!' |
                     sort -u |
@@ -356,9 +368,9 @@ if [[ ! -e "${WORKDIR}/common-pkgs" ]] || [[ ! -e "${WORKDIR}/flatcar-only-pkgs"
         cat "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/portage-stable-pkgs" | sort -u >"${WORKDIR}/flatcar-pkgs"
     fi
 
-    echo "finding all flatcar-only packages"
+    debug "finding all flatcar-only packages"
     comm -2 -3 "${WORKDIR}/flatcar-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/flatcar-only-pkgs"
-    echo "finding all common packages"
+    debug "finding all common packages"
     comm -1 -2 "${WORKDIR}/flatcar-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/common-pkgs"
 fi
 
@@ -412,9 +424,9 @@ get_max_version() {
 }
 
 if [[ ! -e "${WORKDIR}/common-pkgs-max-versions" ]]; then
-    echo "finding max versions of common packages"
+    debug "finding max versions of common packages"
     while read -r line; do
-        echo "  - ${line}"
+        debug "  - ${line}"
         gentoo_max=''
         get_max_version "${line}" gentoo_max "${GENTOO}"
         flatcar_max=''
@@ -425,7 +437,7 @@ if [[ ! -e "${WORKDIR}/common-pkgs-max-versions" ]]; then
     done < "${WORKDIR}/common-pkgs"
 fi
 
-echo "done"
+debug "done"
 
 percent() {
     local num="${1}"
