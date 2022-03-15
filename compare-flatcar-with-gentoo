@@ -57,8 +57,8 @@ shopt -s extglob
 
 this_dir="$(dirname "${0}")"
 
-: ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay/main"}
-: ${PORTAGE_STABLE:="${this_dir}/../portage-stable/main"}
+: ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay"}
+: ${PORTAGE_STABLE:="${this_dir}/../portage-stable"}
 : ${GENTOO:="${this_dir}/../gentoo"}
 : ${JSON:=}
 : ${WORKDIR:="$(mktemp --directory "${this_dir}/cfwg.XXXXXXXXXX")"}
