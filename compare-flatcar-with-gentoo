@@ -250,9 +250,13 @@ gentoo_vercmp() {
 
     local -a a_nums
     local -a b_nums
+    local a_last_field_idx
+    local b_last_field_idx
 
     get_plain_version "${a_ver}" a_nums
     get_plain_version "${b_ver}" b_nums
+    a_last_field_idx="$((${#a_nums[@]}-1))"
+    b_last_field_idx="$((${#b_nums[@]}-1))"
 
     if [[ "${#a_nums[@]}" -ne "${#b_nums[@]}" ]]; then
         if [[ "${#a_nums[@]}" -gt "${#b_nums[@]}" ]]; then
@@ -265,50 +269,51 @@ gentoo_vercmp() {
     local i
     local a
     local b
-
-    # last field needs to be checked separately
-    for i in $(seq 0 $(("${#a_nums[@]}" - 2))); do
-        a="${a_nums[${i}]}"
-        b="${b_nums[${i}]}"
-
-        if [[ "${a}" -gt "${b}" ]]; then
-            res_ref=">v${i}n"
-            return
-        fi
-        if [[ "${a}" -lt "${b}" ]]; then
-            res_ref="<v${i}n"
-            return
-        fi
-    done
-
     local a_num
     local a_word
     local b_num
     local b_word
 
-    i=$(("${#a_nums[@]}" - 1))
-    a="${a_nums[${i}]}"
-    b="${b_nums[${i}]}"
+    for i in $(seq 0 $(("${#a_nums[@]}" - 1))); do
+        a="${a_nums[${i}]}"
+        b="${b_nums[${i}]}"
 
-    split_last_version_field "${a}" a_num a_word
-    split_last_version_field "${b}" b_num b_word
+        if [[ "${i}" -eq "${a_last_field_idx}" ]]; then
+            split_last_version_field "${a}" a_num a_word
+        else
+            a_num="${a}"
+            a_word=''
+            if [[ ! "${a_num}" =~ [0-9] ]]; then
+                warn "Invalid version field '${a_num}' in '${a_ver}', only last version field can contain letters."
+            fi
+        fi
+        if [[ "${i}" -eq "${b_last_field_idx}" ]]; then
+            split_last_version_field "${b}" b_num b_word
+        else
+            b_num="${b}"
+            b_word=''
+            if [[ ! "${b_num}" =~ [0-9] ]]; then
+                warn "Invalid version field '${b_num}' in '${b_ver}', only last version field can contain letters."
+            fi
+        fi
 
-    if [[ "${a_num}" -gt "${b_num}" ]]; then
-        res_ref=">v${i}n"
-        return
-    fi
-    if [[ "${a_num}" -lt "${b_num}" ]]; then
-        res_ref="<v${i}n"
-        return
-    fi
-    if [[ "${a_word}" > "${b_word}" ]]; then
-        res_ref=">v${i}w"
-        return
-    fi
-    if [[ "${a_word}" < "${b_word}" ]]; then
-        res_ref="<v${i}w"
-        return
-    fi
+        if [[ "${a_num}" -gt "${b_num}" ]]; then
+            res_ref=">v${i}n"
+            return
+        fi
+        if [[ "${a_num}" -lt "${b_num}" ]]; then
+            res_ref="<v${i}n"
+            return
+        fi
+        if [[ "${a_word}" > "${b_word}" ]]; then
+            res_ref=">v${i}w"
+            return
+        fi
+        if [[ "${a_word}" < "${b_word}" ]]; then
+            res_ref="<v${i}w"
+            return
+        fi
+    done
 
     # version is equal, let's see the suffixes
 
