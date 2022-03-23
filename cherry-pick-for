@@ -14,11 +14,13 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Environment variables:"
   echo "  MERGE_COMMIT: Create a GitHub-style merge commit if a URL is given (defaults to 1)"
   echo "  PUSH: Push the branch to upstream (defaults to 1)"
+  echo "  ORIGIN: Remote to use when checking out the tracking branch (defaults to origin)"
   exit 1
 fi
 
 PUSH="${PUSH-1}"
 MERGE_COMMIT="${MERGE_COMMIT-1}"
+ORIGIN="${ORIGIN-origin}"
 BRANCH="$1"
 COMMITS="${@:2}"
 
@@ -26,7 +28,7 @@ if [ "$BRANCH" = "--no-checkout-and-pull" ]; then
   BRANCH="HEAD"
 else
   echo "Checking out $BRANCH"
-  git checkout --recurse-submodules "$BRANCH"
+  git checkout --recurse-submodules --track "$ORIGIN/$BRANCH"
   echo "Pulling $BRANCH"
   git pull --recurse-submodules
 fi
@@ -54,7 +56,7 @@ $PR_TITLE"
   fi
   echo "If you need to resolve conflicts, follow the \"git status\" instructions, then run:"
   if [ "${MERGE_COMMIT}" = 1 ]; then
-    echo "  git checkout -"
+    echo "  git checkout --recurse-submodules -"
     echo "  git merge --no-ff -m \"$COMMIT_MSG\" $TEMP_BRANCH"
     echo "  git branch -d $TEMP_BRANCH"
   fi
