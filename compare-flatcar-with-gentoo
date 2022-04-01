@@ -632,12 +632,18 @@ out_fini() {
 spaces_indent=' '
 spaces_first_len=40
 spaces_second_len=8
+spaces_first_group_start=1
 
 spaces_out_init() {
     :
 }
 
 spaces_out_start() {
+    if [[ ${spaces_first_group_start} -eq 0 ]]; then
+        printf '\n';
+    else
+        spaces_first_group_start=0
+    fi
     printf '%s:\n' "$*"
 }
 
@@ -675,7 +681,7 @@ spaces_out_kv() {
 }
 
 spaces_out_end() {
-    printf '\n'
+    :
 }
 
 spaces_out_fini() {
