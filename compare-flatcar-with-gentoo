@@ -652,18 +652,19 @@ spaces_repeat() {
 
 spaces_out_kv() {
     local k="${1}"
-    local v="${2}"
+    local t="${2}"
+    local v="${3}"
     local kl="${#k}"
     local ktabl=$((spaces_first_len-kl-1))
     local ktab
 
     spaces_repeat ktab "${ktabl}"
 
-    if [[ "${#}" -gt 2 ]]; then
+    if [[ "${#}" -gt 3 ]]; then
         local vl="${#v}"
         local vtabl=$((spaces_second_len-vl))
         local vtab
-        local p="${3}"
+        local p="${4}"
 
         spaces_repeat vtab "${vtabl}"
 
@@ -703,11 +704,40 @@ json_out_start() {
     json_out_array+=("  \"${*}\": {")
 }
 
+json_escape_string() {
+    local var_name="${1}"
+    local str="${2}"
+    local -n var_ref="${var_name}"
+    # escape backslashes
+    local escaped="${str//\\/\\\\}"
+    # escape double quotes
+    var_ref="\"${escaped//\"/\\\"}\""
+}
+
+json_v() {
+    local var_name="${1}"
+    local t="${2}"
+    local v="${3}"
+    local -n var_ref="${var_name}"
+
+    case "${t}" in
+        i|f)
+            var_ref="${v}"
+            ;;
+        *)
+            json_escape_string "${var_name}" "${v}"
+            ;;
+    esac
+}
+
 json_out_kv() {
     local k="${1}"
-    local v="${2}"
+    local t="${2}"
+    local v="${3}"
+    local pv
 
-    json_out_array+=("    \"${k}\": \"${v}\",")
+    json_v pv "${t}" "${v}"
+    json_out_array+=("    \"${k}\": ${pv},")
 }
 
 json_out_end() {
@@ -724,50 +754,50 @@ json_out_fini() {
 out_init
 
 out_start 'meta'
-out_kv 'portage-stable hash' "${ps_hash}"
-out_kv 'portage-stable date' "${ps_date}"
-out_kv 'coreos-overlay hash' "${co_hash}"
-out_kv 'coreos-overlay date' "${co_date}"
-out_kv 'gentoo hash' "${gentoo_hash}"
-out_kv 'gentoo date' "${gentoo_date}"
+out_kv 'portage-stable hash' s "${ps_hash}"
+out_kv 'portage-stable date' s "${ps_date}"
+out_kv 'coreos-overlay hash' s "${co_hash}"
+out_kv 'coreos-overlay date' s "${co_date}"
+out_kv 'gentoo hash' s "${gentoo_hash}"
+out_kv 'gentoo date' s "${gentoo_date}"
 out_end
 
 out_start 'general'
-out_kv 'total packages' "${total}"
-out_kv 'portage-stable' "${ps_pkgs}" "$(percent "${ps_pkgs}" "${total}")"
-out_kv 'coreos-overlay' "${co_pkgs}" "$(percent "${co_pkgs}" "${total}")"
-out_kv 'our packages' "${ours}" "$(percent "${ours}" "${total}")"
-out_kv 'common packages' "${total_common}" "$(percent "${total_common}" "${total}")"
-out_kv 'common packages in portage-stable' "${ps_common}" "$(percent "${ps_common}" "${total}")"
-out_kv 'common packages in coreos-overlay' "${co_common}" "$(percent "${co_common}" "${total}")"
-out_kv 'newer packages' "${newer}" "$(percent "${newer}" "${total}")"
-out_kv 'equal packages' "${equal}" "$(percent "${equal}" "${total}")"
-out_kv 'outdated packages' "${outdated}" "$(percent "${outdated}" "${total}")"
-out_kv 'outdated release packages' "${outdated_rel}" "$(percent "${outdated_rel}" "${total}")"
-out_kv 'outdated suffix packages' "${outdated_suf}" "$(percent "${outdated_suf}" "${total}")"
-out_kv 'outdated version packages' "${outdated_ver}" "$(percent "${outdated_ver}" "${total}")"
+out_kv 'total packages' i "${total}"
+out_kv 'portage-stable' i "${ps_pkgs}" "$(percent "${ps_pkgs}" "${total}")"
+out_kv 'coreos-overlay' i "${co_pkgs}" "$(percent "${co_pkgs}" "${total}")"
+out_kv 'our packages' i "${ours}" "$(percent "${ours}" "${total}")"
+out_kv 'common packages' i "${total_common}" "$(percent "${total_common}" "${total}")"
+out_kv 'common packages in portage-stable' i "${ps_common}" "$(percent "${ps_common}" "${total}")"
+out_kv 'common packages in coreos-overlay' i "${co_common}" "$(percent "${co_common}" "${total}")"
+out_kv 'newer packages' i "${newer}" "$(percent "${newer}" "${total}")"
+out_kv 'equal packages' i "${equal}" "$(percent "${equal}" "${total}")"
+out_kv 'outdated packages' i "${outdated}" "$(percent "${outdated}" "${total}")"
+out_kv 'outdated release packages' i "${outdated_rel}" "$(percent "${outdated_rel}" "${total}")"
+out_kv 'outdated suffix packages' i "${outdated_suf}" "$(percent "${outdated_suf}" "${total}")"
+out_kv 'outdated version packages' i "${outdated_ver}" "$(percent "${outdated_ver}" "${total}")"
 out_end
 
 out_start 'portage-stable'
-out_kv 'total packages' "${ps_pkgs}"
-out_kv 'common packages' "${ps_common}" "$(percent "${ps_common}" "${ps_pkgs}")"
-out_kv 'newer packages' "${ps_newer}" "$(percent "${ps_newer}" "${ps_pkgs}")"
-out_kv 'equal packages' "${ps_equal}" "$(percent "${ps_equal}" "${ps_pkgs}")"
-out_kv 'all outdated packages' "${ps_outdated}" "$(percent "${ps_outdated}" "${ps_pkgs}")"
-out_kv 'outdated release packages' "${ps_outdated_rel}" "$(percent "${ps_outdated_rel}" "${ps_pkgs}")"
-out_kv 'outdated suffix packages' "${ps_outdated_suf}" "$(percent "${ps_outdated_suf}" "${ps_pkgs}")"
-out_kv 'outdated version packages' "${ps_outdated_ver}" "$(percent "${ps_outdated_ver}" "${ps_pkgs}")"
+out_kv 'total packages' i "${ps_pkgs}"
+out_kv 'common packages' i "${ps_common}" "$(percent "${ps_common}" "${ps_pkgs}")"
+out_kv 'newer packages' i "${ps_newer}" "$(percent "${ps_newer}" "${ps_pkgs}")"
+out_kv 'equal packages' i "${ps_equal}" "$(percent "${ps_equal}" "${ps_pkgs}")"
+out_kv 'all outdated packages' i "${ps_outdated}" "$(percent "${ps_outdated}" "${ps_pkgs}")"
+out_kv 'outdated release packages' i "${ps_outdated_rel}" "$(percent "${ps_outdated_rel}" "${ps_pkgs}")"
+out_kv 'outdated suffix packages' i "${ps_outdated_suf}" "$(percent "${ps_outdated_suf}" "${ps_pkgs}")"
+out_kv 'outdated version packages' i "${ps_outdated_ver}" "$(percent "${ps_outdated_ver}" "${ps_pkgs}")"
 out_end
 
 out_start 'coreos-overlay'
-out_kv 'total packages' "${co_pkgs}"
-out_kv 'common packages' "${co_common}" "$(percent "${co_common}" "${co_pkgs}")"
-out_kv 'newer packages' "${co_newer}" "$(percent "${co_newer}" "${co_pkgs}")"
-out_kv 'equal packages' "${co_equal}" "$(percent "${co_equal}" "${co_pkgs}")"
-out_kv 'all outdated packages' "${co_outdated}" "$(percent "${co_outdated}" "${co_pkgs}")"
-out_kv 'outdated release packages' "${co_outdated_rel}" "$(percent "${co_outdated_rel}" "${co_pkgs}")"
-out_kv 'outdated suffix packages' "${co_outdated_suf}" "$(percent "${co_outdated_suf}" "${co_pkgs}")"
-out_kv 'outdated version packages' "${co_outdated_ver}" "$(percent "${co_outdated_ver}" "${co_pkgs}")"
+out_kv 'total packages' i "${co_pkgs}"
+out_kv 'common packages' i "${co_common}" "$(percent "${co_common}" "${co_pkgs}")"
+out_kv 'newer packages' i "${co_newer}" "$(percent "${co_newer}" "${co_pkgs}")"
+out_kv 'equal packages' i "${co_equal}" "$(percent "${co_equal}" "${co_pkgs}")"
+out_kv 'all outdated packages' i "${co_outdated}" "$(percent "${co_outdated}" "${co_pkgs}")"
+out_kv 'outdated release packages' i "${co_outdated_rel}" "$(percent "${co_outdated_rel}" "${co_pkgs}")"
+out_kv 'outdated suffix packages' i "${co_outdated_suf}" "$(percent "${co_outdated_suf}" "${co_pkgs}")"
+out_kv 'outdated version packages' i "${co_outdated_ver}" "$(percent "${co_outdated_ver}" "${co_pkgs}")"
 out_end
 
 out_fini
