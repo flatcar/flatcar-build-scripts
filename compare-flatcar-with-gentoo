@@ -604,8 +604,7 @@ co_outdated_rel="$(nfgrep -e 'result:>r' "${WORKDIR}/coreos-overlay-common-pkgs-
 co_outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
 co_outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
 
-
-out_type='tabs'
+out_type='spaces'
 if [[ -n "${JSON}" ]]; then
     out_type='json'
 fi
@@ -630,32 +629,56 @@ out_fini() {
     "${out_type}_out_fini" "${@}"
 }
 
-tabs_out_init() {
-    tabs 2 42 50 58
+spaces_indent=' '
+spaces_first_len=40
+spaces_second_len=8
+
+spaces_out_init() {
+    :
 }
 
-tabs_out_start() {
+spaces_out_start() {
     printf '%s:\n' "$*"
 }
 
-tabs_out_kv() {
+spaces_repeat() {
+    local var_name="${1}"
+    local count="${2}"
+    local -n var_ref="${var_name}"
+    local str="$(printf '=%.0s' $(seq 1 "${count}"))"
+
+    var_ref="${str//=/ }"
+}
+
+spaces_out_kv() {
     local k="${1}"
     local v="${2}"
+    local kl="${#k}"
+    local ktabl=$((spaces_first_len-kl-1))
+    local ktab
+
+    spaces_repeat ktab "${ktabl}"
 
     if [[ "${#}" -gt 2 ]]; then
+        local vl="${#v}"
+        local vtabl=$((spaces_second_len-vl))
+        local vtab
         local p="${3}"
-        printf '\t%s:\t%s\t(%s%%)\n' "${k}" "${v}" "${p}"
+
+        spaces_repeat vtab "${vtabl}"
+
+        printf '%s%s:%s%s%s(%s%%)\n' "${spaces_indent}" "${k}" "${ktab}" "${v}" "${vtab}" "${p}"
     else
-        printf '\t%s:\t%s\n' "${k}" "${v}"
+        printf '%s%s:%s%s\n' "${spaces_indent}" "${k}" "${ktab}" "${v}"
     fi
 }
 
-tabs_out_end() {
+spaces_out_end() {
     printf '\n'
 }
 
-tabs_out_fini() {
-    tabs -8
+spaces_out_fini() {
+    :
 }
 
 declare -a json_out_array
