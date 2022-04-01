@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cpf="$(dirname "${0}")/cherry-pick-for"
+
+flatcars=()
+prs=()
+
+# 0 - add to flatcars, not 0 - add to prs
+mode=0
+for arg; do
+	if [[ "${arg}" = '--' ]]; then
+		mode=1
+	elif [[ ${mode} -eq 0 ]]; then
+		flatcars+=( "${arg}" )
+	else
+		prs+=( "${arg}" )
+	fi
+done
+
+ORIGIN="${ORIGIN-origin}"
+
+base="$(git remote get-url "${ORIGIN}")"
+org_repo=''
+
+case "${base}" in
+    'git@github.com:'*)
+        org_repo="${base#*:}"
+        ;;
+    'https://github.com/'*)
+        org_repo="${base#*//*/}"
+        ;;
+    *)
+        echo "Invalid remote '${base}', expected either 'git@github.com:<ORG>/<REPO>.git' or 'https://github.com/<ORG>/<REPO>.git'."
+        exit 1
+        ;;
+esac
+# drop .git
+org_repo="${org_repo%.*}"
+pull_base="https://github.com/${org_repo}/pull/"
+
+for flatcar in "${flatcars[@]}"; do
+	for pr in "${prs[@]}"; do
+		"${cpf}" "flatcar-${flatcar}" "${pull_base}${pr}"
+	done
+done
