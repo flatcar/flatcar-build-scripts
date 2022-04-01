@@ -700,19 +700,19 @@ json_out_init() {
 }
 
 json_out_start() {
-    json_out_array+=("	\"${*}\": {")
+    json_out_array+=("  \"${*}\": {")
 }
 
 json_out_kv() {
     local k="${1}"
     local v="${2}"
 
-    json_out_array+=("		\"${k}\": \"${v}\",")
+    json_out_array+=("    \"${k}\": \"${v}\",")
 }
 
 json_out_end() {
     json_drop_comma
-    json_out_array+=('	},')
+    json_out_array+=('  },')
 }
 
 json_out_fini() {
