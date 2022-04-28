@@ -28,7 +28,7 @@ if [ "$BRANCH" = "--no-checkout-and-pull" ]; then
   BRANCH="HEAD"
 else
   echo "Checking out $BRANCH"
-  git checkout --recurse-submodules --track "$ORIGIN/$BRANCH"
+  git checkout --recurse-submodules "$BRANCH" || git checkout --recurse-submodules --track "$ORIGIN/$BRANCH"
   echo "Pulling $BRANCH"
   git pull --recurse-submodules
 fi
