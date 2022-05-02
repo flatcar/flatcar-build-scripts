@@ -77,7 +77,7 @@ cp "$FILENAME" release.xml
 MAJOR="${VERSION%%.*}"
 
 MAINT="flatcar"
-if [ "$CHANNEL" = lts ]; then
+if [ "$CHANNEL" = lts ] && [ "$MAJOR" = "2605" ]; then
   MAINT="flatcar-lts"
 fi
 
