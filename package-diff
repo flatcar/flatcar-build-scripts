@@ -4,6 +4,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 FLATCAR_VERSION_A FLATCAR_VERSION_B"
   echo "Shows the ebuild package changes between two Flatcar versions"
   echo "Environment variables:"
+  echo "Set FROM_(A|B)=(release|bincache) to select an other image location than the bucket"
   echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build"
   echo "Set CHANNEL_(A|B)=(alpha|beta|edge|developer) to select a build for another channel than stable"
   echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
@@ -17,6 +18,8 @@ fi
 
 set -euo pipefail
 
+FROM_A="${FROM_A-bucket}"
+FROM_B="${FROM_B-bucket}"
 CHANNEL_A="${CHANNEL_A-stable}"
 CHANNEL_B="${CHANNEL_B-stable}"
 BOARD_A="${BOARD_A-amd64-usr}"
@@ -35,8 +38,23 @@ B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
 
 trap "rm -f \"$A\" \"$B\"" EXIT
 
-curl --location --silent -S -o "$A" https://bucket.release.flatcar-linux.net/flatcar-jenkins"$MODE_A""$CHANNEL_A"/boards/"$BOARD_A"/"$VERSION_A"/"$FILE"
-curl --location --silent -S -o "$B" https://bucket.release.flatcar-linux.net/flatcar-jenkins"$MODE_B""$CHANNEL_B"/boards/"$BOARD_B"/"$VERSION_B"/"$FILE"
+if [ "$FROM_A" = "release" ]; then
+  URL_A="https://${CHANNEL_A}.release.flatcar-linux.net/${BOARD_A}/${VERSION_A}/${FILE}"
+elif [ "$FROM_A" = "bincache" ]; then
+  URL_A="https://bincache.flatcar-linux.net/images/${BOARD_A/-usr/}/${VERSION_A}/${FILE}"
+else
+  URL_A="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_A}${CHANNEL_A}/boards/${BOARD_A}/${VERSION_A}/${FILE}"
+fi
+if [ "$FROM_B" = "release" ]; then
+  URL_B="https://${CHANNEL_B}.release.flatcar-linux.net/${BOARD_B}/${VERSION_B}/${FILE}"
+elif [ "$FROM_B" = "bincache" ]; then
+  URL_B="https://bincache.flatcar-linux.net/images/${BOARD_B/-usr/}/${VERSION_B}/${FILE}"
+else
+  URL_B="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_B}${CHANNEL_B}/boards/${BOARD_B}/${VERSION_B}/${FILE}"
+fi
+
+curl --location --silent -S -o "$A" "$URL_A"
+curl --location --silent -S -o "$B" "$URL_B"
 
 if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ]; then
   # Cut date and time noise away
