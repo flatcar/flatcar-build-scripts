@@ -68,6 +68,8 @@ for REPO in ${REPOS}; do
     (
       source sdk_lib/sdk_container_common.sh
       source ci-automation/ci_automation_common.sh
+      cd "sdk_container/src/third_party/coreos-overlay"; git fetch --all --tags --force; cd -
+      cd "sdk_container/src/third_party/portage-stable"; git fetch --all --tags --force; cd -
       update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
       create_versionfile "${SDK_VERSION}" "${VERSION}"
       SIGN=1 update_and_push_version "${TAG}" true
