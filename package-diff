@@ -6,7 +6,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Environment variables:"
   echo "Set FROM_(A|B)=(release|bincache) to select an other image location than the bucket"
   echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build"
-  echo "Set CHANNEL_(A|B)=(alpha|beta|edge|developer) to select a build for another channel than stable"
+  echo "Set CHANNEL_(A|B)=(alpha|beta|lts|developer) to select a build for another channel than stable"
   echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
   echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
   echo "Set MODE_(A|B)=/developer/ to select a developer build"
