@@ -42,7 +42,7 @@ while true; do
             echo '  --single-commit: Lump all the changes under a single commit'
             echo
             echo 'ENVIRONMENT VARIABLES:'
-            echo '  GENTOO_REPO: Path to the gentoo repo, from which the script syncs stuff.'
+            echo '  GENTOO_REPO: Path to the Gentoo repo, from which the script syncs stuff.'
             echo
             exit 0
             ;;
@@ -71,17 +71,17 @@ fi
 if [[ ! -d "${GLOBAL_gentoo_repo}" ]]; then
     gentoo_repo_tmp='../../gentoo'
     if [[ ! -d "${gentoo_repo_tmp}" ]]; then
-        fail "can't find gentoo repo (tried ${GLOBAL_gentoo_repo} and ${gentoo_repo_tmp}), try using GENTOO_REPO environment variable"
+        fail "can't find Gentoo repo (tried ${GLOBAL_gentoo_repo} and ${gentoo_repo_tmp}), try using GENTOO_REPO environment variable"
     fi
     GLOBAL_gentoo_repo="${gentoo_repo_tmp}"
     unset -v gentoo_repo_tmp
 fi
 
 if [[ $(realpath '.') = $(realpath "${GLOBAL_gentoo_repo}") ]]; then
-    fail 'trying to sync within a gentoo repo?'
+    fail 'trying to sync within a Gentoo repo?'
 fi
 
-echo "using gentoo repo at ${GLOBAL_gentoo_repo}"
+echo "using Gentoo repo at ${GLOBAL_gentoo_repo}"
 
 commit_and_show() {
     if [[ -n "$(git status --porcelain | grep -v '^ ')" ]]; then
@@ -130,13 +130,13 @@ maybe_commit_with_gentoo_sha() {
         local commit=''
         local commit_msg=''
         commit=$(git -C "${GLOBAL_gentoo_repo}" log --pretty=oneline -1 -- "${path}" | cut -f1 -d' ')
-        commit_msg="${name}: Add from gentoo"
+        commit_msg="${name}: Add from Gentoo"
         if [[ -n "${sync}" ]]; then
-            commit_msg="${name}: Sync with gentoo"
+            commit_msg="${name}: Sync with Gentoo"
         fi
         if ! commit_and_show \
              --message "${commit_msg}" \
-             --message "It's from gentoo commit ${commit}."; then
+             --message "It's from Gentoo commit ${commit}."; then
             echo "no changes in ${path}"
         fi
     fi
@@ -202,7 +202,7 @@ done
 
 if [[ -n "${GLOBAL_single_commit}" ]]; then
     if ! commit_and_show \
-         --message '*: Sync with gentoo'; then
+         --message '*: Sync with Gentoo'; then
         echo 'no changes made'
     fi
 fi
