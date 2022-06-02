@@ -22,16 +22,16 @@ for section in security bugfixes changes updates; do
   echo
   case "${section}" in
     security)
-      echo "Security fixes:"
+      echo "## Security fixes:"
       ;;
     bugfixes)
-      echo "Bug fixes:"
+      echo "## Bug fixes:"
       ;;
     changes)
-      echo "Changes:"
+      echo "## Changes:"
       ;;
     updates)
-      echo "Updates:"
+      echo "## Updates:"
       ;;
     *)
       echo "wrong cases" > /dev/stderr
