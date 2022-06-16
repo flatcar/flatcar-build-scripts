@@ -3,6 +3,7 @@ set -euo pipefail
 
 SKIP_FETCH="${SKIP_FETCH:-}"
 DEBUG="${DEBUG:-}"
+NOSSH="${NOSSH:-}"
 
 SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
@@ -16,6 +17,7 @@ if [ "${1-}" = "-h" ] || [ "${1-}" = "--help" ]; then
   echo "The dates consist of year, month, and day (e.g., 2021-01-01)."
   echo "With only the start date given the time spans up to today."
   echo "Without the start date the time starts from ${FROM}."
+  echo "Set NOSSH=1 as env var to clone the repos via https."
   echo "Set SKIP_FETCH=1 as env var to skip the repo update."
   echo "Set DEBUG=1 as env var to work on test data."
   exit 1
@@ -63,7 +65,11 @@ for REPO in "${REPOS[@]}"; do
     if [ ! -d "${FOLDER}" ]; then
       echo "Cloning ${REPO} in ${FOLDER}"
       cd "${SCRIPTFOLDER}/.."
-      git clone --recurse-submodules "git@github.com:${REPO}.git" > /dev/null 2> /dev/null
+      URL="git@github.com:${REPO}.git"
+      if [ "${NOSSH}" = "1" ]; then
+        URL="https://github.com/${REPO}.git"
+      fi
+      git clone --recurse-submodules "${URL}" > /dev/null 2> /dev/null || { echo "Cloning failed, try again with NOSSH=1" >&2 ; exit 1 ;}
       cd -
     else
       if [ "${SKIP_FETCH}" != "1" ]; then
