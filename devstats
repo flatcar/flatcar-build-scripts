@@ -1,0 +1,137 @@
+#!/bin/bash
+set -euo pipefail
+
+SKIP_FETCH="${SKIP_FETCH:-}"
+DEBUG="${DEBUG:-}"
+
+SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
+
+FROM="2018-01-01"
+TO=$(date "+%Y-%m-%d")
+
+if [ "${1-}" = "-h" ] || [ "${1-}" = "--help" ]; then
+  echo "Usage $0 [YEAR-MONTH-DAY] [YEAR-MONTH-DAY]"
+  echo "This script will fetch all Flatcar-related repos to ${SCRIPTFOLDER/..} and"
+  echo "and show some dev stats."
+  echo "The dates consist of year, month, and day (e.g., 2021-01-01)."
+  echo "With only the start date given the time spans up to today."
+  echo "Without the start date the time starts from ${FROM}."
+  echo "Set SKIP_FETCH=1 as env var to skip the repo update."
+  echo "Set DEBUG=1 as env var to work on test data."
+  exit 1
+fi
+
+if [ "${1-}" != "" ]; then
+  FROM="${1}"
+fi
+if [ "${2-}" != "" ]; then
+  TO="${2}"
+fi
+
+# Excluded: flatcar-linux/ignition flatcar-linux/afterburn flatcar-linux/ign-converter flatcar-linux/grub
+# (because they are upstream projects)
+REPOS=(flatcar-linux/scripts flatcar-linux/coreos-overlay flatcar-linux/portage-stable flatcar-linux/flatcar-docs
+       flatcar-linux/init flatcar-linux/flatcar-linux-update-operator flatcar-linux/flatcar-build-scripts
+       flatcar-linux/mantle flatcar-linux/update-ssh-keys flatcar-linux/container-linux-config-transpiler
+       flatcar-linux/locksmith flatcar-linux/bootengine flatcar-linux/baselayout
+       flatcar-linux/flatcar-packer-qemu flatcar-linux/sysext-bakery
+       flatcar-linux/flatcar-dev-util flatcar-linux/torcx flatcar-linux/update_engine flatcar-linux/flatcar-terraform
+       flatcar-linux/coreos-cloudinit flatcar-linux/fleetlock flatcar-linux/toolbox flatcar-linux/seismograph
+       flatcar-linux/updateservicectl flatcar-linux/mayday
+       flatcar-linux/nss-altfiles flatcar-linux/sysroot-wrappers flatcar-linux/shim
+       flatcar-linux/fero flatcar-linux/efunctions flatcar-linux/chromite
+       flatcar-linux/flatcar-release-mirror flatcar-linux/sdnotify-proxy
+       flatcar-linux/flog kinvolk/nebraska)
+
+OUTPUT=""
+
+if [ "${DEBUG}" = "1" ]; then
+  OUTPUT="4 Some Body <somebody@microsoft.com>
+3 Other Person <op@external.com>
+7  Some Body <sb@users.noreply.github.com>
+2  Another One <ao@kinvolk.io>"
+fi
+
+declare -A COUNTER
+declare -A EMAILS
+declare -A TO_REPOS
+
+for REPO in "${REPOS[@]}"; do
+  NAME=$(echo "${REPO}" | cut -d / -f 2)
+  if [ "${DEBUG}" != "1" ]; then
+    FOLDER="${SCRIPTFOLDER}/../${NAME}"
+    if [ ! -d "${FOLDER}" ]; then
+      echo "Cloning ${REPO} in ${FOLDER}"
+      cd "${SCRIPTFOLDER}/.."
+      git clone --recurse-submodules "git@github.com:${REPO}.git" > /dev/null 2> /dev/null
+      cd -
+    else
+      if [ "${SKIP_FETCH}" != "1" ]; then
+        echo "Fetching ${REPO} in ${FOLDER}"
+        git -C "${FOLDER}" fetch origin > /dev/null 2> /dev/null
+      fi
+    fi
+    REF="origin/main"
+    if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
+      REF="origin/flatcar-master"
+    fi
+    if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
+      REF="origin/master"
+    fi
+    # Trim left space, use space not tabs, and ignore bots
+    OUTPUT=$(git -C "${FOLDER}" shortlog -sne --since="${FROM}" --until="${TO}" "${REF}" | sed 's/^[ ]*//g' | tr '\t' ' ' | { grep -v -P '(flatcar-ci|Buildbot|dependabot|jenkins@localhost)' || true ; })
+  fi
+  while IFS= read -r line; do
+    if [ "${line}" != "" ]; then
+      # Format is "COUNT   NAME SURNAME <EMAIL>"
+      COUNT=$(echo "${line}" | cut -d " " -f 1)
+      AUTHOR=$(echo "${line}" | cut -d " " -f 2- | cut -d "<" -f 1)
+      # Trim left and right space
+      AUTHOR=$(echo "${AUTHOR}" | sed 's/^[ ]*//g' | sed 's/[ ]*$//g')
+      EMAIL=$(echo "${line}" | cut -d " " -f 2- | cut -d "<" -f 2 | cut -d ">" -f 1)
+      # Workarounds for a few names
+      if [ "${AUTHOR}" = "yolossn" ] || [ "${AUTHOR}" = "Santhosh Nagaraj S" ]; then
+        AUTHOR="S Santhosh Nagaraj"
+      fi
+      if [ "${AUTHOR}" = "Kai Lüke" ]; then
+        AUTHOR="Kai Lueke"
+      fi
+      if [ "${AUTHOR}" = "william light" ]; then
+        AUTHOR="William Light"
+      fi
+      if [ "${AUTHOR}" = "ashu8912" ]; then
+        AUTHOR="Ashu Ghildiyal"
+      fi
+      if [ "${AUTHOR}" = "Iago López Galeiras" ]; then
+        AUTHOR="Iago Lopez Galeiras"
+      fi
+      PREV_COUNT="${COUNTER["${AUTHOR}"]-0}"
+      COUNTER["${AUTHOR}"]=$((COUNT + PREV_COUNT))
+      PREV_EMAILS="${EMAILS["${AUTHOR}"]-}"
+      if ! echo "${PREV_EMAILS}" | grep -q "${EMAIL}"; then
+        EMAILS["${AUTHOR}"]=$(echo "${PREV_EMAILS} ${EMAIL}" | sed 's/^[ ]*//g')
+      fi
+      PREV_TO_REPOS="${TO_REPOS["${AUTHOR}"]-}"
+      if ! echo "${PREV_TO_REPOS}" | grep -q "${NAME}"; then
+        TO_REPOS["${AUTHOR}"]=$(echo "${PREV_TO_REPOS} ${NAME}" | sed 's/^[ ]*//g')
+      fi
+    fi
+  done <<< "${OUTPUT}"
+done
+
+STATS=$(for AUTHOR in "${!COUNTER[@]}"; do
+  echo "${COUNTER["${AUTHOR}"]} ${AUTHOR} <${EMAILS["${AUTHOR}"]-}> (${TO_REPOS["${AUTHOR}"]})"
+done | sort -n -r)
+
+PATTERN="(microsoft|kinvolk)"
+
+echo
+echo "Commits from ${FROM} to ${TO} in"
+echo "  ${REPOS[*]}" | sed 's#flatcar-linux/##g' | fmt
+echo
+echo "Kinvolk/Microsoft:"
+echo "${STATS}" | grep -P "${PATTERN}"
+echo
+echo "Non-Kinvolk/Microsoft:"
+echo "${STATS}" | grep -v -P "${PATTERN}"
+echo
