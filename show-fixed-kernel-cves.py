@@ -36,11 +36,14 @@ def print_fixed_linux_cves(from_version_str, to_version_str):
   streams = json.loads(payload)
   from_version=version.Version(from_version_str)
   to_version=version.Version(to_version_str)
+  cvelist = []
   links = []
   for stream, releases in streams.items():
     for release, cves in releases.items():
       if release != "outstanding" and from_version < version.Version(release) <= to_version:
-        links += [f"[{cve}](https://nvd.nist.gov/vuln/detail/{cve})" for cve, _ in cves.items()]
+        cvelist += cves.items()
+  for cve, _ in sorted(cvelist):
+    links += [f"[{cve}](https://nvd.nist.gov/vuln/detail/{cve})"]
   print(", ".join(links))
 
 parser = OptionParser()

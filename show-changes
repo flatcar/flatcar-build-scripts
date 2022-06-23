@@ -47,7 +47,7 @@ for section in security bugfixes changes updates; do
     fi
     # TODO: when the coreos-overlay and portage-stable submodules are pointing to the right version, use them directly instead of "-C repo"
     # (and allow to operate in "scripts" instead of the top directory)
-    git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/" || { echo "Error: git difftool failed" ; exit 1 ; }
+    git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
     # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
     # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
     # If an existing file got changed, we assume that this is just a correction for the old change but
