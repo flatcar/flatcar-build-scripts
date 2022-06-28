@@ -4,12 +4,12 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: $0 FLATCAR_VERSION_A FLATCAR_VERSION_B"
   echo "Shows the ebuild package changes between two Flatcar versions"
   echo "Environment variables:"
-  echo "Set FROM_(A|B)=(release|bincache) to select an other image location than the bucket"
-  echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build"
-  echo "Set CHANNEL_(A|B)=(alpha|beta|lts|developer) to select a build for another channel than stable"
+  echo "Set FROM_(A|B)=(release|bincache|file://.../) to select an other image location than the bucket (note that file://.../ should be the directory where VERSION_. is appended, you may use '.' for the version)"
+  echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build (ignored if FROM_.=file...)"
+  echo "Set CHANNEL_(A|B)=(alpha|beta|lts|developer) to select a build for another channel than stable (ignored for FROM_.=bincache|file...)"
   echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
   echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
-  echo "Set MODE_(A|B)=/developer/ to select a developer build"
+  echo "Set MODE_(A|B)=/developer/ to select a developer build (only for FROM_.=bucket)"
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
   echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
   echo "Alternatively, set CALCSIZE=1 to sum up the file sizes from flatcar_production_image_contents.txt (/boot and /usr, excluding symlinks and directories)"
@@ -42,6 +42,8 @@ if [ "$FROM_A" = "release" ]; then
   URL_A="https://${CHANNEL_A}.release.flatcar-linux.net/${BOARD_A}/${VERSION_A}/${FILE}"
 elif [ "$FROM_A" = "bincache" ]; then
   URL_A="https://bincache.flatcar-linux.net/images/${BOARD_A/-usr/}/${VERSION_A}/${FILE}"
+elif echo "$FROM_A" | grep -q '^file'; then
+  URL_A="${FROM_A}/${VERSION_A}/${FILE}"
 else
   URL_A="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_A}${CHANNEL_A}/boards/${BOARD_A}/${VERSION_A}/${FILE}"
 fi
@@ -49,6 +51,8 @@ if [ "$FROM_B" = "release" ]; then
   URL_B="https://${CHANNEL_B}.release.flatcar-linux.net/${BOARD_B}/${VERSION_B}/${FILE}"
 elif [ "$FROM_B" = "bincache" ]; then
   URL_B="https://bincache.flatcar-linux.net/images/${BOARD_B/-usr/}/${VERSION_B}/${FILE}"
+elif echo "$FROM_B" | grep -q '^file'; then
+  URL_B="${FROM_B}/${VERSION_B}/${FILE}"
 else
   URL_B="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_B}${CHANNEL_B}/boards/${BOARD_B}/${VERSION_B}/${FILE}"
 fi
