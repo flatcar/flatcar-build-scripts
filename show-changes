@@ -40,8 +40,12 @@ for section in security bugfixes changes updates; do
   esac
   echo
   if [ "${section}" = security ]; then
-      FROM_KERNEL=$(git -C coreos-overlay show "${OLD}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
-      TO_KERNEL=$(git -C coreos-overlay show "${NEW}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      repo=coreos-overlay
+      if [ -d "scripts/sdk_container/src/third_party/${repo}" ]; then
+        repo="scripts/sdk_container/src/third_party/${repo}"
+      fi
+      FROM_KERNEL=$(git -C "${repo}" show "${OLD}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      TO_KERNEL=$(git -C "${repo}" show "${NEW}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
       if [ "${FROM_KERNEL}" != "${TO_KERNEL}" ]; then
         KERNEL_ENTRIES=$("${SCRIPTFOLDER}"/show-fixed-kernel-cves.py -f "${FROM_KERNEL}" -t "${TO_KERNEL}")
         if [ "${KERNEL_ENTRIES}" != "" ]; then
@@ -51,13 +55,16 @@ for section in security bugfixes changes updates; do
   fi
   for repo in coreos-overlay portage-stable scripts; do
     if [ "${repo}" = scripts ] && [ ! -e "${repo}" ]; then
+      # Support the previous repo name for old checkouts
       repo="flatcar-scripts"
+    fi
+    # For the submodule detection, assume that the "scripts" repo name is ok
+    if [ "${repo}" != "scripts" ] && [ -d "scripts/sdk_container/src/third_party/${repo}" ]; then
+      repo="scripts/sdk_container/src/third_party/${repo}"
     fi
     if [ "${FETCH}" = 1 ]; then
       git -C "${repo}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
     fi
-    # TODO: when the coreos-overlay and portage-stable submodules are pointing to the right version, use them directly instead of "-C repo"
-    # (and allow to operate in "scripts" instead of the top directory)
     git -C "${repo}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLD}..${NEW}" -- "changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
     # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
     # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
