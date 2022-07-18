@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# ./cherry-pick-for-many 3033 3139 -- 376 377
+#
+
 set -euo pipefail
 
 cpf="$(dirname "${0}")/cherry-pick-for"
