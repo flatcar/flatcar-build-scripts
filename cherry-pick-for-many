@@ -1,25 +1,37 @@
 #!/bin/bash
 
 #
-# ./cherry-pick-for-many 3033 3139 -- 376 377
+# Cherry picks multiple PRs to multiple flatcar maintenance
+# branches. The script must be invoked from the repository.
+#
+# ./cherry-pick-for-many [pr1, [pr2, …]] -- version1 [version2, [version3, …]]
+#
+# For example, cherry-picking PRs 376 and 377 to branches flatcar-3033
+# and flatcar-3139:
+#
+# ./cherry-pick-for-many 376 377 -- 3033 3139
+#
+# Environment variables:
+#
+# ORIGIN: Used to select which remote to use (forwarded to cherry-pick-for).
 #
 
 set -euo pipefail
 
 cpf="$(dirname "${0}")/cherry-pick-for"
 
-flatcars=()
 prs=()
+flatcars=()
 
-# 0 - add to flatcars, not 0 - add to prs
+# 0 - add to prs, not 0 - add to flatcars
 mode=0
 for arg; do
 	if [[ "${arg}" = '--' ]]; then
 		mode=1
 	elif [[ ${mode} -eq 0 ]]; then
-		flatcars+=( "${arg}" )
-	else
 		prs+=( "${arg}" )
+	else
+		flatcars+=( "${arg}" )
 	fi
 done
 
@@ -46,6 +58,6 @@ pull_base="https://github.com/${org_repo}/pull/"
 
 for flatcar in "${flatcars[@]}"; do
 	for pr in "${prs[@]}"; do
-		"${cpf}" "flatcar-${flatcar}" "${pull_base}${pr}"
+		ORIGIN="${ORIGIN}" "${cpf}" "flatcar-${flatcar}" "${pull_base}${pr}"
 	done
 done
