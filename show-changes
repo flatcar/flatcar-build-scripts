@@ -49,6 +49,9 @@ for section in security bugfixes changes updates; do
     REPOPATH="${repo}"
     # For the submodule detection, assume that the "scripts" repo name is ok
     if [ "${repo}" != "scripts" ] && [ -d "scripts/sdk_container/src/third_party/${repo}" ]; then
+      if [ "${FETCH}" = 1 ]; then
+        git -C "scripts" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
+      fi
       # Find the pinned submodule refs because there may be no release tags inside the submodules
       # Pipe to awk instead of using --object-only for git 2.35 support
       OLDREF=$(git -C "scripts" ls-tree "${OLD}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
