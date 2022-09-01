@@ -12,7 +12,13 @@ if [[ -z "${GENTOO_REPO}" ]]; then
 fi
 
 part=$(git log -1 --pretty=format:%s | cut -f 1 -d :)
+rest=$(git log -1 --pretty=format:%s | cut -f 2- -d :)
+pattern='[Ss]ync with [gG]entoo|[Aa]dd from [Gg]entoo'
 
+if [[ ! "${rest}" =~ ${pattern} ]]; then
+    # not a commit to sync
+    exit 0
+fi
 if [[ "${part}" = 'eclass/'* ]]; then
     part="${part}.eclass"
 fi
