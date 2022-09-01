@@ -4,9 +4,12 @@ set -euo pipefail
 
 shopt -s extglob
 
-this_dir="$(dirname "${0}")"
+if [[ ${#} -lt 1 ]]; then
+    echo "${0} <path to portage-stable>" >&2
+    exit 1
+fi
 
-: ${PORTAGE_STABLE:="${this_dir}/portage-stable/main//"}
+PORTAGE_STABLE="${1}"
 
 ebuild_files=($(find "${PORTAGE_STABLE}" -name '*.ebuild'))
 eclass_files=($(find "${PORTAGE_STABLE}" -name '*.eclass'))
