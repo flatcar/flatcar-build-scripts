@@ -14,25 +14,33 @@ fi
 
 OLD="$1"
 NEW="${2-HEAD}"
+OLD_FMT=""
 
+# The release tags are usually in format of (alpha|beta|stable|lts-XXXX.Y.Z) but
+# what we need in the formatted output is (Alpha|Beta|Stable|LTS XXXX.Y.Z).
+# The given code transform the given name into the desired output.
+if [[ $OLD == *"lts"* ]]; then
+  OLD_FMT=$(echo $OLD | tr "-" " " | tr '[:lower:]' '[:upper:]')
+else
+  OLD_FMT=$(echo $OLD | tr "-" " " | sed 's/./\U&/')
+fi
 
-echo "Changes since ${OLD}"
-
+echo "_Changes since **${OLD_FMT}**_"
 
 for section in security bugfixes changes updates; do
   echo
   case "${section}" in
     security)
-      echo "## Security fixes:"
+      echo "#### Security fixes:"
       ;;
     bugfixes)
-      echo "## Bug fixes:"
+      echo "#### Bug fixes:"
       ;;
     changes)
-      echo "## Changes:"
+      echo "#### Changes:"
       ;;
     updates)
-      echo "## Updates:"
+      echo "#### Updates:"
       ;;
     *)
       echo "wrong cases" > /dev/stderr
