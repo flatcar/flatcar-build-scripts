@@ -30,20 +30,20 @@ if [ "${2-}" != "" ]; then
   TO="${2}"
 fi
 
-# Excluded: flatcar-linux/ignition flatcar-linux/afterburn flatcar-linux/ign-converter flatcar-linux/grub
+# Excluded: flatcar/ignition flatcar/afterburn flatcar/ign-converter flatcar/grub
 # (because they are upstream projects)
-REPOS=(flatcar-linux/scripts flatcar-linux/coreos-overlay flatcar-linux/portage-stable flatcar-linux/flatcar-docs
-       flatcar-linux/init flatcar-linux/flatcar-linux-update-operator flatcar-linux/flatcar-build-scripts
-       flatcar-linux/mantle flatcar-linux/update-ssh-keys flatcar-linux/container-linux-config-transpiler
-       flatcar-linux/locksmith flatcar-linux/bootengine flatcar-linux/baselayout
-       flatcar-linux/flatcar-packer-qemu flatcar-linux/sysext-bakery
-       flatcar-linux/flatcar-dev-util flatcar-linux/torcx flatcar-linux/update_engine flatcar-linux/flatcar-terraform
-       flatcar-linux/coreos-cloudinit flatcar-linux/fleetlock flatcar-linux/toolbox flatcar-linux/seismograph
-       flatcar-linux/updateservicectl flatcar-linux/mayday
-       flatcar-linux/nss-altfiles flatcar-linux/sysroot-wrappers flatcar-linux/shim
-       flatcar-linux/fero flatcar-linux/efunctions flatcar-linux/chromite
-       flatcar-linux/flatcar-release-mirror flatcar-linux/sdnotify-proxy
-       flatcar-linux/flog kinvolk/nebraska)
+REPOS=(flatcar/scripts flatcar/coreos-overlay flatcar/portage-stable flatcar/flatcar-docs
+       flatcar/init flatcar/flatcar-update-operator flatcar/flatcar-build-scripts
+       flatcar/mantle flatcar/update-ssh-keys flatcar/container-linux-config-transpiler
+       flatcar/locksmith flatcar/bootengine flatcar/baselayout
+       flatcar/flatcar-packer-qemu flatcar/sysext-bakery
+       flatcar/flatcar-dev-util flatcar/torcx flatcar/update_engine flatcar/flatcar-terraform
+       flatcar/coreos-cloudinit flatcar/fleetlock flatcar/toolbox flatcar/seismograph
+       flatcar/updateservicectl flatcar/mayday
+       flatcar/nss-altfiles flatcar/sysroot-wrappers flatcar/shim
+       flatcar/fero flatcar/efunctions flatcar/chromite
+       flatcar/flatcar-release-mirror flatcar/sdnotify-proxy
+       flatcar/flog kinvolk/nebraska)
 
 OUTPUT=""
 
@@ -133,7 +133,7 @@ PATTERN="(microsoft|kinvolk)"
 
 echo
 echo "Commits from ${FROM} to ${TO} in"
-echo "  ${REPOS[*]}" | sed 's#flatcar-linux/##g' | fmt
+echo "  ${REPOS[*]}" | sed 's#flatcar/##g' | fmt
 echo
 echo "Kinvolk/Microsoft:"
 echo "${STATS}" | grep -P "${PATTERN}"
