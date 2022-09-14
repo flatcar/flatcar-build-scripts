@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mirroring a specific branch from the flatcar-linux remote repos.
+# Mirroring a specific branch from the flatcar remote repos.
 # Run it like:
 #
 #  ./mirror-repos-branch build-2010.0.1 flatcar-build-2010.0.1
@@ -48,7 +48,7 @@ for repo in "${FLATCAR_REPOS[@]}"; do
     continue
   fi
 
-  HEAD_URL="git@github.com:flatcar-linux/${repo}"
+  HEAD_URL="git@github.com:flatcar/${repo}"
 
   [ ! -d "${repo}" ] && git clone --recurse-submodules "${HEAD_URL}"
 

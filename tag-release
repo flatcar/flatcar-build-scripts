@@ -6,7 +6,7 @@ if [ "${SDK_VERSION}" = "" ] || [ "$VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ 
   echo "$0:"
   echo "This script will create and push release tags in the repositories scripts, coreos-overlay, and portage-stable"
   echo "checked out in $SCRIPTFOLDER/../(scripts|coreos-overlay|portage-stable). The repositories will be cloned from"
-  echo "github.com/flatcar-linux/(scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
+  echo "github.com/flatcar/(scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
   echo "repository must point there or pushing fails or does some unwanted action)."
   echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.0.0 CHANNEL=stable $0"
   echo
@@ -40,7 +40,7 @@ for REPO in ${REPOS}; do
   echo "Preparing ${REPO}"
   cd "$SCRIPTFOLDER/.."
   if [ ! -d "${REPO}" ]; then
-    git clone --recurse-submodules "git@github.com:flatcar-linux/${REPO}.git"
+    git clone --recurse-submodules "git@github.com:flatcar/${REPO}.git"
   fi
   cd "${REPO}"
   git fetch origin
