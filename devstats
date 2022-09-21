@@ -33,7 +33,7 @@ fi
 # Excluded: flatcar/ignition flatcar/afterburn flatcar/ign-converter flatcar/grub
 # (because they are upstream projects)
 REPOS=(flatcar/scripts flatcar/coreos-overlay flatcar/portage-stable flatcar/flatcar-docs
-       flatcar/init flatcar/flatcar-update-operator flatcar/flatcar-build-scripts
+       flatcar/init flatcar/flatcar-linux-update-operator flatcar/flatcar-build-scripts
        flatcar/mantle flatcar/update-ssh-keys flatcar/container-linux-config-transpiler
        flatcar/locksmith flatcar/bootengine flatcar/baselayout
        flatcar/flatcar-packer-qemu flatcar/sysext-bakery
