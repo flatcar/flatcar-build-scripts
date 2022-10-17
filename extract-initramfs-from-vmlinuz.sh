@@ -4,7 +4,7 @@
 #
 # Example: extract-initramfs-from-vmlinuz /boot/flatcar/vmlinuz-a out-dir
 #
-# This will create out-dir/rootfs-0 directory that contains initramfs.
+# This will create one or more out-dir/rootfs-N directories that contain the contents of the initramfs.
 
 set -euo pipefail
 # check for unzstd. Will abort the script with an error message if the tool is not present.
@@ -71,38 +71,37 @@ trap "rm -rf ${tmp}" EXIT
 tmp_dec="${tmp}/decompress"
 mkdir "${tmp_dec}"
 fr_prefix="${tmp}/first-round"
-try_unzstd_decompress "${image}" "${tmp_dec}" "${fr_prefix}"
 
-shopt -s failglob
+ROOTFS_IDX=0
+perform_round() {
+    local image="${1}"
+    local tmp_dec="${2}"
+    local round_prefix="${3}"
+    try_unzstd_decompress "${image}" "${tmp_dec}" "${round_prefix}"
+    for rnd in "${round_prefix}"*; do
+        if [[ $(file --brief "${rnd}") =~ 'cpio archive' ]]; then
+            mkdir -p "${out}/rootfs-${ROOTFS_IDX}"
+            while cpio --quiet --extract --make-directories --directory="${out}/rootfs-${ROOTFS_IDX}" --nonmatching 'dev/*'; do
+                ROOTFS_IDX=$(( ROOTFS_IDX + 1 ))
+                mkdir -p "${out}/rootfs-${ROOTFS_IDX}"
+            done <${rnd}
+            rmdir "${out}/rootfs-${ROOTFS_IDX}"
+        fi
+    done
+}
 
-rootfs_idx=0
+shopt -s nullglob
+perform_round "${image}" "${tmp_dec}" "${fr_prefix}"
 for fr in "${fr_prefix}"*; do
     fr_files="${fr}-files"
     fr_dec="${fr_files}/decompress"
     mkdir -p "${fr_dec}"
     sr_prefix="${fr_files}/second-round"
-    try_unzstd_decompress "${fr}" "${fr_dec}" "${sr_prefix}"
-
-    for sr in "${sr_prefix}"*; do
-        if [[ $(file --brief "${sr}") =~ 'cpio archive' ]]; then
-            sr_files="${sr}-files"
-            sr_uccpio="${sr_files}/microcode-cpio-contents"
-            mkdir -p "${sr_uccpio}"
-            blocks=$(cpio --extract --make-directories --directory="${sr_uccpio}" <"${sr}" 2>&1 | grep --only-matching '[0-9]\+')
-            initramfs_cpio="${sr_files}/initramfs.cpio"
-            dd if="${sr}" of="${initramfs_cpio}" bs=512 skip="${blocks}" 2>/dev/null
-            if [[ $(file --brief "${initramfs_cpio}") =~ 'cpio archive' ]]; then
-                rootfs_dir="${out}/rootfs-${rootfs_idx}"
-                mkdir -p "${rootfs_dir}"
-                cpio --extract --quiet --make-directories --directory="${rootfs_dir}" --nonmatching 'dev/*' <"${initramfs_cpio}"
-                rootfs_idx=$((rootfs_idx+1))
-            fi
-        fi
-    done
+    perform_round "${fr}" "${fr_dec}" "${sr_prefix}"
 done
 
-if [[ ${rootfs_idx} -eq 0 ]]; then
+if [[ ${ROOTFS_IDX} -eq 0 ]]; then
     fail "no initramfs found in ${image}"
 fi
 
-echo "done, found ${rootfs_idx} rootfs(es)"
+echo "done, found ${ROOTFS_IDX} rootfs(es)"
