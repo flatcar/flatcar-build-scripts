@@ -417,6 +417,9 @@ cut_leading_dir() {
 }
 
 if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
+       [[ ! -e "${WORKDIR}/portage-stable-all-updatable-things" ]] || \
+       [[ ! -e "${WORKDIR}/coreos-overlay-all-updatable-things" ]] || \
+       [[ ! -e "${WORKDIR}/portage-stable-under-automation" ]] || \
        [[ ! -e "${WORKDIR}/portage-stable-flatcar-only-pkgs" ]] || \
        [[ ! -e "${WORKDIR}/coreos-overlay-flatcar-only-pkgs" ]] || \
        [[ ! -e "${WORKDIR}/flatcar-only-pkgs" ]] || \
@@ -424,10 +427,11 @@ if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
        [[ ! -e "${WORKDIR}/coreos-overlay-common-pkgs" ]] || \
        [[ ! -e "${WORKDIR}/common-pkgs" ]]; then
     if [[ ! -e "${WORKDIR}/flatcar-pkgs" ]]; then
-        for p in "gentoo:${GENTOO}" "portage-stable:${PORTAGE_STABLE}" "coreos-overlay:${COREOS_OVERLAY}"; do
+        for p in "${REPO_PAIRS[@]}"; do
             name="$(get_name "${p}")"
 
             if [[ ! -e "${WORKDIR}/${name}-pkgs" ]] || \
+                   [[ ! -e "${WORKDIR}/${name}-eclasses" ]] || \
                    [[ ! -e "${WORKDIR}/${name}-hash" ]] || \
                    [[ ! -e "${WORKDIR}/${name}-date" ]]; then
                 repo="$(get_repo "${p}")"
@@ -436,6 +440,17 @@ if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
                     sed -e 's!/[^/]*$!!' |
                     sort -u |
                     cut_leading_dir "${repo}" >"${WORKDIR}/${name}-pkgs"
+                debug "finding all eclasses in ${name} (${repo})"
+                find "${repo}/eclass" -name '*.eclass' |
+                    sort |
+                    cut_leading_dir "${repo}" >"${WORKDIR}/${name}-eclasses"
+                misc=()
+                for m in 'scripts' 'licenses' 'profiles'; do
+                    if [[ -d "${repo}/${m}" ]]; then
+                        misc+=("${m}")
+                    fi
+                done
+                printf '%s\n' "${misc[@]}" >"${WORKDIR}/${name}-misc"
                 git -C "${repo}" log -1 --pretty='%H' >"${WORKDIR}/${name}-hash"
                 git -C "${repo}" log -1 --pretty='%cD' >"${WORKDIR}/${name}-date"
             fi
@@ -446,6 +461,18 @@ if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
 
     debug "finding all duplicated packages in portage-stable and coreos-overlay"
     comm -1 -2 "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/portage-stable-pkgs" >"${WORKDIR}/duplicated-pkgs"
+
+    debug "finding all updatable things in portage-stable"
+    cat "${WORKDIR}/portage-stable-pkgs" "${WORKDIR}/portage-stable-eclasses" "${WORKDIR}/portage-stable-misc" | sort >"${WORKDIR}/portage-stable-all-updatable-things"
+    debug "finding all updatable things in coreos-overlay"
+    cat "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/coreos-overlay-eclasses" "${WORKDIR}/coreos-overlay-misc" | sort >"${WORKDIR}/coreos-overlay-all-updatable-things"
+
+    debug "finding all updatable things under automation in portage-stable"
+    if [[ -e "${PORTAGE_STABLE}/.github/workflows/packages-list" ]]; then
+        grep '^[^#]' "${PORTAGE_STABLE}/.github/workflows/packages-list" | sort >"${WORKDIR}/portage-stable-under-automation"
+    else
+        touch "${WORKDIR}/portage-stable-under-automation"
+    fi
 
     debug "finding all flatcar-only packages in portage-stable"
     comm -2 -3 "${WORKDIR}/portage-stable-pkgs" "${WORKDIR}/gentoo-pkgs" >"${WORKDIR}/portage-stable-flatcar-only-pkgs"
@@ -604,6 +631,13 @@ co_outdated_rev="$(nfgrep -e 'result:>r' "${WORKDIR}/coreos-overlay-common-pkgs-
 co_outdated_suf="$(nfgrep -e 'result:>s' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
 co_outdated_ver="$(nfgrep -e 'result:>v' "${WORKDIR}/coreos-overlay-common-pkgs-max-versions" | wc -l)"
 
+ps_auto_total=$(cat "${WORKDIR}/portage-stable-all-updatable-things" | wc -l)
+ps_auto_listed=$(cat "${WORKDIR}/portage-stable-under-automation" | wc -l)
+co_auto_total=$(cat "${WORKDIR}/coreos-overlay-all-updatable-things" | wc -l)
+co_auto_listed='0'
+auto_total=$((ps_auto_total + co_auto_total))
+auto_listed=$((ps_auto_listed + co_auto_listed))
+
 out_type='spaces'
 if [[ -n "${JSON}" ]]; then
     out_type='json'
@@ -630,7 +664,7 @@ out_fini() {
 }
 
 spaces_indent=' '
-spaces_first_len=40
+spaces_first_len=64
 spaces_second_len=8
 spaces_first_group_start=1
 
@@ -804,6 +838,15 @@ out_kv 'all outdated packages' i "${co_outdated}" "$(percent "${co_outdated}" "$
 out_kv 'outdated revision packages' i "${co_outdated_rev}" "$(percent "${co_outdated_rev}" "${co_pkgs}")"
 out_kv 'outdated suffix packages' i "${co_outdated_suf}" "$(percent "${co_outdated_suf}" "${co_pkgs}")"
 out_kv 'outdated version packages' i "${co_outdated_ver}" "$(percent "${co_outdated_ver}" "${co_pkgs}")"
+out_end
+
+out_start 'automation'
+out_kv 'total updatable things' i "${auto_total}"
+out_kv 'total updatable things under automation' i "${auto_listed}" "$(percent "${auto_listed}" "${auto_total}")"
+out_kv 'updatable things in portage-stable' i "${ps_auto_total}"
+out_kv 'updatable things under automation in portage-stable' i "${ps_auto_listed}" "$(percent "${ps_auto_listed}" "${ps_auto_total}")"
+out_kv 'updatable things in coreos-overlay' i "${co_auto_total}"
+out_kv 'updatable things under automation in coreos-overlay' i "${co_auto_listed}" "$(percent "${co_auto_listed}" "${co_auto_total}")"
 out_end
 
 out_fini
