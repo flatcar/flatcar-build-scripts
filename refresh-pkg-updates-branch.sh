@@ -6,7 +6,7 @@ set -euo pipefail
 : ${BASE:=origin/main}
 
 fail() {
-    echo "${*}" >&2
+    echo "refresh-pkg-updates-branch: ${*}" >&2
     exit 1
 }
 
