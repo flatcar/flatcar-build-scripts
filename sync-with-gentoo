@@ -206,6 +206,9 @@ for cpn; do
         eclass/*.eclass)
             path_sync "${cpn}" "${cpn%.eclass}"
             ;;
+        metadata/glsa)
+            path_sync "${cpn}" "${cpn}"
+            ;;
         metadata)
             fail "metadata directory can't be synced"
             ;;
