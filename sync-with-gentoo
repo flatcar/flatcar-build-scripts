@@ -40,6 +40,7 @@ while true; do
             echo 'OPTIONS:'
             echo '  --help|-h: Print this help and quit'
             echo '  --message|-m: Additional messages for commits, will be passed to git commit --message, can be specified many times'
+            echo '  --amend-mode|-a: Updates commit message to use the new used hash sum of the commit.'
             echo '  --single-commit: Lump all the changes under a single commit'
             echo
             echo 'ENVIRONMENT VARIABLES:'
