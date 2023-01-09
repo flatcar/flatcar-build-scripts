@@ -141,3 +141,4 @@ echo
 echo "Non-Kinvolk/Microsoft:"
 echo "${STATS}" | grep -v -P "${PATTERN}"
 echo
+echo "Total commits: $(($(echo "${COUNTER[@]}" | tr -s '[:blank:]' '+')))"
