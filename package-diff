@@ -60,6 +60,50 @@ fi
 curl --location --silent -S -o "$A" "$URL_A"
 curl --location --silent -S -o "$B" "$URL_B"
 
+function no_hardlinks {
+    local f="${1}"; shift
+    local -a lines
+    lines=()
+    local line pair clear_line hardlink size key
+    # cache contains entries in form of <hardlink_count>:<size>, if
+    # such a key exists in cache then the line should be ignored for
+    # size accounting
+    local -A cache
+
+    cache=()
+    # ignore directories and symlinks
+    #
+    # for each non-ignored line print <hardlink_count>:<size>@<original_line>
+    #
+    # that way we can generate a key for the cache; if they key is not
+    # in cache, we print the original line and insert the key into
+    # cache, otherwise we ignore the line - each hardlink is accounted
+    # for just once
+    #
+    # hardlink count of 1 is a special case - we always print the line
+    # and don't bother with adding it to cache
+    #
+    # handy, since git seems to be a hardlink farm - it has around 140
+    # binaries being actually hardlinks to a single 3mb file
+    mapfile -t lines < <(grep -v '^[dl]' "${f}" | awk '{print $2 ":" $5 "@" $0}')
+    for line in "${lines[@]}"; do
+        pair="${line%%@*}"
+        clear_line="${line#*@}"
+        hardlink="${pair%:*}"
+        if [[ "${hardlink}" -eq 1 ]]; then
+            echo "${clear_line}"
+            continue
+        fi
+        size="${pair#*:}"
+        key="${hardlink}:${size}"
+        if [[ -n "${cache[${key}]:+isset}" ]]; then
+            continue
+        fi
+        cache[${key}]=x
+        echo "${clear_line}"
+    done
+}
+
 if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ]; then
   # Cut date and time noise away
   sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
@@ -76,21 +120,21 @@ if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_de
     sed -i -E 's#[0-9]+\.[0-9]+\.[0-9]+-flatcar#a.b.c-flatcar#g' "$A" "$B"
   fi
   if [ "$CALCSIZE" = 1 ]; then
-    A_SUM=$(($(grep -v '^d' "$A" | grep -v '^l' | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    A_BOOT=$(($(grep -v '^d' "$A" | grep -v '^l' | grep " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    A_USR=$(($(grep -v '^d' "$A" | grep -v '^l' | grep " [\.]*/usr" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    A_ROOT=$(($(grep -v '^d' "$A" | grep -v '^l' | grep -v " [\.]*/usr" | grep -v " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    A_SUM=$(($(no_hardlinks "$A" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    A_BOOT=$(($(no_hardlinks "$A" | grep " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    A_USR=$(($(no_hardlinks "$A" | grep " [\.]*/usr" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    A_ROOT=$(($(no_hardlinks "$A" | grep -v " [\.]*/usr" | grep -v " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
     echo "Sum: $((${A_SUM}/1024/1024)) MiB" > "$A"
     echo "Boot: $((${A_BOOT}/1024/1024)) MiB (must be < 60 MiB or updates will break)" >> "$A"
-    echo "Usr: $((${A_USR}/1024/1024)) MiB (inc. sparse files/hardlinks)" >> "$A"
+    echo "Usr: $((${A_USR}/1024/1024)) MiB (inc. sparse files)" >> "$A"
     echo "Rootfs: $((${A_ROOT}/1024/1024)) MiB" >> "$A"
-    B_SUM=$(($(grep -v '^d' "$B" | grep -v '^l' | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    B_BOOT=$(($(grep -v '^d' "$B" | grep -v '^l' | grep " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    B_USR=$(($(grep -v '^d' "$B" | grep -v '^l' | grep " [\.]*/usr" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
-    B_ROOT=$(($(grep -v '^d' "$B" | grep -v '^l' | grep -v " [\.]*/usr" | grep -v " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    B_SUM=$(($(no_hardlinks "$B" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    B_BOOT=$(($(no_hardlinks "$B" | grep " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    B_USR=$(($(no_hardlinks "$B" | grep " [\.]*/usr" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
+    B_ROOT=$(($(no_hardlinks "$B" | grep -v " [\.]*/usr" | grep -v " [\.]*/boot" | tr -c '[:graph:][:space:]' '?' | rev | cut -d ' ' -f 2 | rev | paste -sd+ -)))
     echo "Sum: $((${B_SUM}/1024/1024)) MiB" > "$B"
     echo "Boot: $((${B_BOOT}/1024/1024)) MiB (must be < 60 MiB or updates will break)" >> "$B"
-    echo "Usr: $((${B_USR}/1024/1024)) MiB (inc. sparse files/hardlinks)" >> "$B"
+    echo "Usr: $((${B_USR}/1024/1024)) MiB (inc. sparse files)" >> "$B"
     echo "Rootfs: $((${B_ROOT}/1024/1024)) MiB" >> "$B"
   fi
 fi
