@@ -236,54 +236,10 @@ fi
 
 PATH_SEP='@_^_@_^_@'
 
-# new
-if [[ ! -e "${wd}/new_entries" ]]; then
-    echo "Generating new entries"
-    new_entries=()
-    mapfile -t new_entries < <(xgrep -e '^+/' "${wd}/output" | sed -e 's/^+//')
-
-    truncate --size 0 "${wd}/new_entries"
-    for new_entry in "${new_entries[@]}"; do
-        regexp='^\+.* \.'
-        regexp+="${new_entry//0/[0-9]+(\.[0-9]+)*}"
-        regexp+='$'
-        fields=()
-        while read -r -a fields; do
-            hardlink="${fields[1]}"
-            size="${fields[4]}"
-            path="${fields[5]}"
-            printf '%s:%s:%s\n' "${size}" "${hardlink}" "${path}" >>"${wd}/new_entries"
-        done < <(xgrep -E -e "${regexp}" "${wd}/detailed_output")
-    done
-    unset new_entries fields
-fi
-
-# deleted
-if [[ ! -e "${wd}/deleted_entries" ]]; then
-    echo "Generating deleted entries"
-    deleted_entries=()
-    mapfile -t deleted_entries < <(xgrep -e '^-/' "${wd}/output" | sed -e 's/^-//')
-
-    truncate --size 0 "${wd}/deleted_entries"
-    for deleted_entry in "${deleted_entries[@]}"; do
-        regexp='^\-.* \.'
-        regexp+="${deleted_entry//0/[0-9]+(\.[0-9]+)*}"
-        regexp+='$'
-        fields=()
-        while read -r -a fields; do
-            hardlink="${fields[1]}"
-            size="${fields[4]}"
-            path="${fields[5]}"
-            printf '%s:%s:%s\n' "${size}" "${hardlink}" "${path}" >>"${wd}/deleted_entries"
-        done < <(xgrep -E -e "${regexp}" "${wd}/detailed_output")
-    done
-    unset deleted_entries fields
-fi
-
 function munge_path_into_regexp {
     local path="${1}"; shift
     local regexp="${path}"
-    
+
     # escape special stuff, means . * $ ^ [
     regexp="${regexp//./\\.}"
     regexp="${regexp//\*/\\\*}"
@@ -296,23 +252,72 @@ function munge_path_into_regexp {
 
 function munge_numbers_into_regexps {
     local regexp="${1}"; shift
+
+    # turn all dot separated numbers into a regexp matching dot separated numbers
+    sed -E 's/[0-9]+(\.[0-9]+)*/[0-9]\\+\\(\\.[0-9]\\+\\)*/g' <<<"${regexp}"
+}
+
+# new
+if [[ ! -e "${wd}/new_entries" ]]; then
+    echo "Generating new entries"
+    new_entries=()
+    mapfile -t new_entries < <(xgrep -e '^+/' "${wd}/output" | sed -e 's/^+//')
+
+    truncate --size 0 "${wd}/new_entries"
+    for new_entry in "${new_entries[@]}"; do
+        regexp=$(munge_path_into_regexp "${new_entry}")
+        regexp=$(munge_numbers_into_regexps "${regexp}")
+        regexp='^+.* \.'"${regexp}"'$'
+        fields=()
+        while read -r -a fields; do
+            hardlink="${fields[1]}"
+            size="${fields[4]}"
+            path="${fields[5]}"
+            printf '%s:%s:%s\n' "${size}" "${hardlink}" "${path}" >>"${wd}/new_entries"
+        done < <(xgrep -e "${regexp}" "${wd}/detailed_output")
+    done
+    unset new_entries fields
+fi
+
+# deleted
+if [[ ! -e "${wd}/deleted_entries" ]]; then
+    echo "Generating deleted entries"
+    deleted_entries=()
+    mapfile -t deleted_entries < <(xgrep -e '^-/' "${wd}/output" | sed -e 's/^-//')
+
+    truncate --size 0 "${wd}/deleted_entries"
+    for deleted_entry in "${deleted_entries[@]}"; do
+        regexp=$(munge_path_into_regexp "${deleted_entry}")
+        regexp=$(munge_numbers_into_regexps "${regexp}")
+        regexp='^-.* \.'"${regexp}"'$'
+        fields=()
+        while read -r -a fields; do
+            hardlink="${fields[1]}"
+            size="${fields[4]}"
+            path="${fields[5]}"
+            printf '%s:%s:%s\n' "${size}" "${hardlink}" "${path}" >>"${wd}/deleted_entries"
+        done < <(xgrep -e "${regexp}" "${wd}/detailed_output")
+    done
+    unset deleted_entries fields
+fi
+
+function munge_so_numbers_into_regexps {
+    local regexp="${1}"; shift
     local regexp_pre_so regexp_post_so
 
-    # handle so versions specially, pre .so. part will receive a different number matching than the po .so. part
+    # handle so versions specially, pre .so. part will receive a
+    # different number matching than the post .so. part
     if [[ "${regexp}" = *'\.so\.'* ]]; then
         regexp_pre_so="${regexp%%\\.so\\.*}"
-        # turn all dot separated numbers into a regexp matching dot separated numbers
-        regexp_pre_so="$(sed -E 's/[0-9]+(\.[0-9]+)*/[0-9]\\+\\(\\.[0-9]\\+\\)*/g' <<<"${regexp_pre_so}")"
+        regexp_pre_so=$(munge_numbers_into_regexps "${regexp_pre_so}")
         regexp_post_so="${regexp#*\\.so\\.}"
         # turn every number into a regexp matching any number
         regexp_post_so="$(sed -E 's/[0-9]+/[0-9]\\+/g' <<<"${regexp_post_so}")"
         regexp="${regexp_pre_so}"'\.so\.'"${regexp_post_so}"
+        printf '%s\n' "${regexp}"
     else
-        # turn all dot separated numbers into a regexp matching dot separated numbers
-        regexp="$(sed -E 's/[0-9]+(\.[0-9]+)*/[0-9]\\+\\(\\.[0-9]\\+\\)*/g' <<<"${regexp}")"
+        munge_numbers_into_regexps "${regexp}"
     fi
-
-    printf '%s\n' "${regexp}"
 }
 
 # changed
@@ -328,7 +333,7 @@ if [[ ! -e "${wd}/changed_entries" ]]; then
         old_size="${fields[4]}"
         old_path="${fields[5]}"
         regexp=$(munge_path_into_regexp "${old_path}")
-        regexp=$(munge_numbers_into_regexps "${regexp}")
+        regexp=$(munge_so_numbers_into_regexps "${regexp}")
         regexp='^\+.*[^>] '"${regexp}"'$'
         results=()
         mapfile -t results < <(xgrep -e "${regexp}" "${wd}/diff-plus-only")
@@ -348,7 +353,7 @@ if [[ ! -e "${wd}/changed_entries" ]]; then
                 # 2. try the same directory with number-munged basename
                 regexp2_dir_part=$(munge_path_into_regexp "$(dirname "${old_path}")")
                 regexp2_base_part=$(munge_path_into_regexp "$(basename "${old_path}")")
-                regexp2_base_part=$(munge_numbers_into_regexps "${regexp2_base_part}")
+                regexp2_base_part=$(munge_so_numbers_into_regexps "${regexp2_base_part}")
                 regexp2="${regexp2_dir_part}/${regexp2_base_part}"
                 results2=()
                 mapfile -t results2 < <(printf '%s\n' "${results[@]}" | xgrep -e "${regexp2}")
