@@ -14,6 +14,7 @@
 ### spec is a string in one of two forms:
 ### release:<channel>:<board>:<version> (e.g. release:alpha:amd64-usr:3480.0.0)
 ### bincache:<arch>:<version> (e.g. bincache:amd64:3483.0.0+weekly-updates-11)
+### file:<path>
 ###
 ### options:
 ### (limit options default to 10, limit is disabled if it is 0 or less)
@@ -82,6 +83,7 @@ done
 #
 # release:CHANNEL:BOARD:VERSION
 # bincache:ARCH:VERSION
+# file:PATH
 function handle_spec {
     local spec="${1}"; shift
     local output="${1}"; shift
@@ -94,7 +96,7 @@ function handle_spec {
 
     mapfile -t spec_a < <(tr ':' '\n' <<<"${spec}")
 
-    case "${spec_a}" in
+    case "${spec_a[0]}" in
         release)
             if [[ "${#spec_a[@]}" -ne 4 ]]; then
                 fail "Invalid release spec '${spec}', should be in form of release:CHANNEL:BOARD:VERSION"
@@ -105,6 +107,7 @@ function handle_spec {
             board="${spec_a[2]}"
             version="${spec_a[3]}"
             url="https://${channel}.release.flatcar-linux.net/${board}/${version}"
+            curl --location --silent -S -o "${output}" "${url}/flatcar_production_image_contents.txt"
             ;;
         bincache)
             if [[ "${#spec_a[@]}" -ne 3 ]]; then
@@ -115,12 +118,19 @@ function handle_spec {
             arch="${spec_a[1]}"
             version="${spec_a[2]}"
             url="https://bincache.flatcar-linux.net/images/${arch}/${version}"
+            curl --location --silent -S -o "${output}" "${url}/flatcar_production_image_contents.txt"
+            ;;
+        file)
+            if [[ "${#spec_a[@]}" -ne 2 ]]; then
+                fail "Invalid file spec '${spec}', should be in form of file:PATH"
+            fi
+            local path="${spec_a[1]}"
+            cp -a "${path}" "${output}"
             ;;
         *)
-            fail "Invalid spec '${spec}', should have either release or bincache for first kind"
+            fail "Invalid spec '${spec}', should have either release, bincache or file for first kind"
             ;;
     esac
-    curl --location --silent -S -o "${output}" "${url}/flatcar_production_image_contents.txt"
 }
 
 : ${WORKDIR:=}
