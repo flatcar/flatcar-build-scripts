@@ -9,6 +9,9 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Set CHANNEL_(A|B)=(alpha|beta|lts|developer) to select a build for another channel than stable (ignored for FROM_.=bincache|file...)"
   echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
   echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
+  echo "  NOTE: for {flatcar_production_image,flatcar_developer_container}_contents.txt"
+  echo    " a wtd will be tried out first ({flatcar_production_image,flatcar_developer_container}_contents_wtd.txt)"
+  echo    " if WITHNEWSTUFF env var is set to 1"
   echo "Set MODE_(A|B)=/developer/ to select a developer build (only for FROM_.=bucket)"
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
   echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
@@ -32,81 +35,155 @@ VERSION_B="$2"
 FILESONLY="${FILESONLY-0}"
 CUTKERNEL="${CUTKERNEL-0}"
 CALCSIZE="${CALCSIZE-0}"
+WITHNEWSTUFF="${WITHNEWSTUFF-0}"
+WTD=0
 
 A="$(mktemp "/tmp/$VERSION_A-XXXXXX")"
 B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
 
 trap "rm -f \"$A\" \"$B\"" EXIT
 
-if [ "$FROM_A" = "release" ]; then
-  URL_A="https://${CHANNEL_A}.release.flatcar-linux.net/${BOARD_A}/${VERSION_A}/${FILE}"
-elif [ "$FROM_A" = "bincache" ]; then
-  URL_A="https://bincache.flatcar-linux.net/images/${BOARD_A/-usr/}/${VERSION_A}/${FILE}"
-elif echo "$FROM_A" | grep -q '^file'; then
-  URL_A="${FROM_A}/${VERSION_A}/${FILE}"
-else
-  URL_A="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_A}${CHANNEL_A}/boards/${BOARD_A}/${VERSION_A}/${FILE}"
-fi
-if [ "$FROM_B" = "release" ]; then
-  URL_B="https://${CHANNEL_B}.release.flatcar-linux.net/${BOARD_B}/${VERSION_B}/${FILE}"
-elif [ "$FROM_B" = "bincache" ]; then
-  URL_B="https://bincache.flatcar-linux.net/images/${BOARD_B/-usr/}/${VERSION_B}/${FILE}"
-elif echo "$FROM_B" | grep -q '^file'; then
-  URL_B="${FROM_B}/${VERSION_B}/${FILE}"
-else
-  URL_B="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_B}${CHANNEL_B}/boards/${BOARD_B}/${VERSION_B}/${FILE}"
-fi
+function download {
+    local file="${1}"; shift
 
-curl --location --silent -S -o "$A" "$URL_A"
-curl --location --silent -S -o "$B" "$URL_B"
+    if [ "$FROM_A" = "release" ]; then
+        URL_A="https://${CHANNEL_A}.release.flatcar-linux.net/${BOARD_A}/${VERSION_A}/${file}"
+    elif [ "$FROM_A" = "bincache" ]; then
+        URL_A="https://bincache.flatcar-linux.net/images/${BOARD_A/-usr/}/${VERSION_A}/${file}"
+    elif echo "$FROM_A" | grep -q '^file'; then
+        URL_A="${FROM_A}/${VERSION_A}/${file}"
+    else
+        URL_A="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_A}${CHANNEL_A}/boards/${BOARD_A}/${VERSION_A}/${file}"
+    fi
+    if [ "$FROM_B" = "release" ]; then
+        URL_B="https://${CHANNEL_B}.release.flatcar-linux.net/${BOARD_B}/${VERSION_B}/${file}"
+    elif [ "$FROM_B" = "bincache" ]; then
+        URL_B="https://bincache.flatcar-linux.net/images/${BOARD_B/-usr/}/${VERSION_B}/${file}"
+    elif echo "$FROM_B" | grep -q '^file'; then
+        URL_B="${FROM_B}/${VERSION_B}/${file}"
+    else
+        URL_B="https://bucket.release.flatcar-linux.net/flatcar-jenkins${MODE_B}${CHANNEL_B}/boards/${BOARD_B}/${VERSION_B}/${file}"
+    fi
+
+    curl --location --silent -S -o "$A" "$URL_A"
+    curl --location --silent -S -o "$B" "$URL_B"
+
+    if [[ ! -s "${A}" ]] || [[ ! -s "${B}" ]]; then
+        return 1
+    fi
+    return 0
+}
+
+if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
+    if [[ "${WITHNEWSTUFF}" = '1' ]] && download "${FILE%.*}_wtd.txt"; then
+        WTD=1
+    else
+        if [[ "${WITHNEWSTUFF}" = '1' ]]; then
+            echo "WTD variants of the contents files missing, falling back to old files"
+        fi
+        if ! download "${FILE}"; then
+            echo "Failed to download contents files"
+            exit 1
+        fi
+    fi
+else
+    if ! download "${FILE}"; then
+        echo "Failed to download contents files"
+        exit 1
+    fi
+fi
 
 function no_hardlinks {
     local f="${1}"; shift
-    local -a lines
-    lines=()
-    local line pair clear_line hardlink size key
-    # cache contains entries in form of <hardlink_count>:<size>, if
-    # such a key exists in cache then the line should be ignored for
-    # size accounting
+    # cache contains entries in form of either <hardlink_count>:<size>
+    # or <device_id>:<inode>, if such a key exists in cache then the
+    # line should be ignored for size accounting
     local -A cache
 
     cache=()
     # ignore directories and symlinks
     #
-    # for each non-ignored line print <hardlink_count>:<size>@<original_line>
-    #
-    # that way we can generate a key for the cache; if they key is not
-    # in cache, we print the original line and insert the key into
-    # cache, otherwise we ignore the line - each hardlink is accounted
-    # for just once
+    # for each non-ignored line generate a key for the cache; if the
+    # key is not in cache, we print the original line and insert the
+    # key into cache, otherwise we ignore the line - each hardlink is
+    # accounted for just once
     #
     # hardlink count of 1 is a special case - we always print the line
     # and don't bother with adding it to cache
     #
     # handy, since git seems to be a hardlink farm - it has around 140
     # binaries being actually hardlinks to a single 3mb file
-    mapfile -t lines < <(grep -v '^[dl]' "${f}" | awk '{print $2 ":" $5 "@" $0}')
-    for line in "${lines[@]}"; do
-        pair="${line%%@*}"
-        clear_line="${line#*@}"
-        hardlink="${pair%:*}"
-        if [[ "${hardlink}" -eq 1 ]]; then
+    #
+    # the form of the cache key depends on the file we process, if
+    # it's the one with device ids and inodes, then the key is
+    # <device_id>:<inode>, otherwise it's heuristical
+    # <hardlink_count>:<size>
+    if [[ "${WTD}" = '1' ]]; then
+        # awk fields:
+        # 0 - whole line
+        # 1 - permissions
+        # 2 - device id
+        # 3 - inode
+        # 4 - hardlink count
+        # 5 - size
+        # 6 - path
+        local -a lines
+        local line tuple clear_line device_id pair inode hardlink key
+        mapfile -t lines < <(grep -v '^[dl]' "${f}" | awk '{print $2 "-" $3 ":" $4 "@" $0}')
+        for line in "${lines[@]}"; do
+            tuple="${line%%@*}"
+            clear_line="${line#*@}"
+            device_id="${tuple%-*}"
+            pair="${tuple#*-}"
+            inode="${pair%:*}"
+            hardlink="${pair#*:}"
+            if [[ "${hardlink}" -eq 1 ]]; then
+                echo "${clear_line}"
+                continue
+            fi
+            key="${device_id}:${inode}"
+            if [[ -n "${cache[${key}]:+isset}" ]]; then
+                continue
+            fi
+            cache[${key}]=x
             echo "${clear_line}"
-            continue
-        fi
-        size="${pair#*:}"
-        key="${hardlink}:${size}"
-        if [[ -n "${cache[${key}]:+isset}" ]]; then
-            continue
-        fi
-        cache[${key}]=x
-        echo "${clear_line}"
-    done
+        done
+    else
+        # awk fields:
+        # 0 - whole line
+        # 1 - permissions
+        # 2 - hardlink count
+        # 3 - user
+        # 4 - greoup
+        # 5 - size
+        # 6 - path
+        local -a lines
+        local line pair clear_line hardlink size key
+        mapfile -t lines < <(grep -v '^[dl]' "${f}" | awk '{print $2 ":" $5 "@" $0}')
+        for line in "${lines[@]}"; do
+            pair="${line%%@*}"
+            clear_line="${line#*@}"
+            hardlink="${pair%:*}"
+            if [[ "${hardlink}" -eq 1 ]]; then
+                echo "${clear_line}"
+                continue
+            fi
+            size="${pair#*:}"
+            key="${hardlink}:${size}"
+            if [[ -n "${cache[${key}]:+isset}" ]]; then
+                continue
+            fi
+            cache[${key}]=x
+            echo "${clear_line}"
+        done
+    fi
 }
 
 if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ]; then
-  # Cut date and time noise away
-  sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
+  if [[ "${WTD}" = '0' ]]; then
+    # Cut date and time noise away
+    sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
+  fi
   # Sort by path
   sort -t / -k 2 --output "$A" "$A"
   sort -t / -k 2 --output "$B" "$B"
@@ -139,4 +216,4 @@ if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_de
   fi
 fi
 
-git diff "$A" "$B"
+git diff --no-index -- "$A" "$B"
