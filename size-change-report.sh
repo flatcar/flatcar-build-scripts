@@ -18,7 +18,7 @@
 ###
 ### channel: alpha, beta, stable, lts
 ### board: amd64-usr, arm64-usr
-### kind: old, wtd
+### kind: old, wtd, initrd-old, initrd-wtd
 ### arch: amd64, arm64
 ###
 ### options:
@@ -93,6 +93,12 @@ function file_from_kind {
             ;;
         wtd)
             echo 'flatcar_production_image_contents_wtd.txt'
+            ;;
+        initrd-old)
+            echo 'flatcar_production_image_initrd_contents.txt'
+            ;;
+        initrd-wtd)
+            echo 'flatcar_production_image_initrd_contents_wtd.txt'
             ;;
         *)
             fail "Invalid kind '${kind}' in spec '${spec}', should either be 'old' or 'wtd'"
