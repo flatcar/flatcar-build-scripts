@@ -7,10 +7,10 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Set FROM_(A|B)=(release|bincache|file://.../) to select an other image location than the bucket (note that file://.../ should be the directory where VERSION_. is appended, you may use '.' for the version)"
   echo "Set BOARD_(A|B)=arm64-usr to select an arm64 build (ignored if FROM_.=file...)"
   echo "Set CHANNEL_(A|B)=(alpha|beta|lts|developer) to select a build for another channel than stable (ignored for FROM_.=bincache|file...)"
-  echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
+  echo "Set FILE=(flatcar_production_image_contents.txt|flatcar_production_image_initrd_contents.txt|flatcar_developer_container_packages.txt|flatcar_developer_container_contents.txt|flatcar_production_image_kernel_config.txt)"
   echo "  to show image contents or developer container packages instead of flatcar_production_image_packages.txt"
-  echo "  NOTE: for {flatcar_production_image,flatcar_developer_container}_contents.txt"
-  echo    " a wtd will be tried out first ({flatcar_production_image,flatcar_developer_container}_contents_wtd.txt)"
+  echo "  NOTE: for {flatcar_production_image,flatcar_developer_container}_contents.txt and flatcar_production_image_initd_contents.txt"
+  echo    " a wtd will be tried out first ({flatcar_production_image,flatcar_developer_container}_contents_wtd.txt and flatcar_production_image_initd_contents_wtd.txt)"
   echo    " if WITHNEWSTUFF env var is set to 1"
   echo "Set MODE_(A|B)=/developer/ to select a developer build (only for FROM_.=bucket)"
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
@@ -74,7 +74,7 @@ function download {
     return 0
 }
 
-if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
+if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_production_image_initrd_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
     if [[ "${WITHNEWSTUFF}" = '1' ]] && download "${FILE%.*}_wtd.txt"; then
         WTD=1
     else
@@ -179,7 +179,7 @@ function no_hardlinks {
     fi
 }
 
-if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ]; then
+if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ] || [ "$FILE" = flatcar_production_image_initrd_contents.txt ]; then
   if [[ "${WTD}" = '0' ]]; then
     # Cut date and time noise away
     sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
