@@ -52,16 +52,23 @@ spec_b=
 while [[ ${#} -gt 0 ]]; do
     case "${1}" in
         -n)
+            # shellcheck disable=SC2034 # Used through indirection
             NEW_LIMIT="${2}";
             shift
             ;;
-        -d) DELETED_LIMIT="${2}";
+        -d)
+            # shellcheck disable=SC2034 # Used through indirection
+            DELETED_LIMIT="${2}";
             shift
             ;;
-        -g) GROWN_LIMIT="${2}";
+        -g)
+            # shellcheck disable=SC2034 # Used through indirection
+            GROWN_LIMIT="${2}";
             shift
             ;;
-        -s) SHRUNK_LIMIT="${2}";
+        -s)
+            # shellcheck disable=SC2034 # Used through indirection
+            SHRUNK_LIMIT="${2}";
             shift
             ;;
         -h)
@@ -120,45 +127,45 @@ function handle_spec {
         fail "Invalid spec '${spec}', can't be multiline"
     fi
 
-    local -a spec_a url
+    local -a spec_ar url
 
-    mapfile -t spec_a < <(tr ':' '\n' <<<"${spec}")
+    mapfile -t spec_ar < <(tr ':' '\n' <<<"${spec}")
 
-    case "${spec_a[0]}" in
+    case "${spec_ar[0]}" in
         release)
-            if [[ "${#spec_a[@]}" -ne 5 ]]; then
+            if [[ "${#spec_ar[@]}" -ne 5 ]]; then
                 fail "Invalid release spec '${spec}', should be in form of release:CHANNEL:BOARD:VERSION:KIND"
             fi
-            local from channel board version kind file
-            channel="${spec_a[1]}"
-            board="${spec_a[2]}"
-            version="${spec_a[3]}"
-            kind="${spec_a[4]}"
+            local channel board version kind file
+            channel="${spec_ar[1]}"
+            board="${spec_ar[2]}"
+            version="${spec_ar[3]}"
+            kind="${spec_ar[4]}"
             url="https://${channel}.release.flatcar-linux.net/${board}/${version}"
             file=$(file_from_kind "${spec}" "${kind}")
             curl --location --silent -S -o "${output}" "${url}/${file}"
             echo "${kind}" >"${output_kind}"
             ;;
         bincache)
-            if [[ "${#spec_a[@]}" -ne 4 ]]; then
+            if [[ "${#spec_ar[@]}" -ne 4 ]]; then
                 fail "Invalid bincache spec '${spec}', should be in form of bincache:ARCH:VERSION:KIND"
             fi
-            local from arch version kind file
-            arch="${spec_a[1]}"
-            version="${spec_a[2]}"
-            kind="${spec_a[3]}"
+            local arch version kind file
+            arch="${spec_ar[1]}"
+            version="${spec_ar[2]}"
+            kind="${spec_ar[3]}"
             url="https://bincache.flatcar-linux.net/images/${arch}/${version}"
             file=$(file_from_kind "${spec}" "${kind}")
             curl --location --silent -S -o "${output}" "${url}/${file}"
             echo "${kind}" >"${output_kind}"
             ;;
         file)
-            if [[ "${#spec_a[@]}" -ne 3 ]]; then
+            if [[ "${#spec_ar[@]}" -ne 3 ]]; then
                 fail "Invalid file spec '${spec}', should be in form of file:PATH:KIND"
             fi
             local path kind
-            path="${spec_a[1]}"
-            kind="${spec_a[2]}"
+            path="${spec_ar[1]}"
+            kind="${spec_ar[2]}"
             # only validate kind in spec
             file_from_kind "${spec}" "${kind}" >/dev/null
             cp -a "${path}" "${output}"
@@ -173,8 +180,8 @@ function handle_spec {
     fi
 }
 
-: ${WORKDIR:=}
-: ${KEEP_WORKDIR:=}
+: "${WORKDIR:=}"
+: "${KEEP_WORKDIR:=}"
 
 if [[ -z "${WORKDIR}" ]]; then
     WORKDIR=$(mktemp --tmpdir --directory "scr-XXXXXXXX")
@@ -187,6 +194,7 @@ fi
 mkdir -p "${WORKDIR}"
 
 if [[ -z ${KEEP_WORKDIR} ]]; then
+    # shellcheck disable=SC2064 # WORKDIR won't change, so we can expand it now.
     trap "rm -rf '${WORKDIR}'" EXIT
 fi
 
@@ -323,7 +331,7 @@ if any_missing "${wd}/output" "${wd}/detailed_output"; then
     # Generate detailed output, without the diff noise. File format;
     # <diff sign><cache key> <hardlink count> <size> <path>
     xgit-diff \
-        --unified=${lineno} \
+        --unified="${lineno}" \
         --no-index \
         -- \
         "${wd}/A.6b.final-form" "${wd}/B.6b.final-form" | \
@@ -531,7 +539,7 @@ function strip_n {
 
     local stripped="${tuple}"
     while [[ ${count} -gt 0 ]]; do
-        stripped="${stripped#*${sep}}"
+        stripped="${stripped#*"${sep}"}"
         count=$((count - 1))
     done
     out_var="${stripped}"
@@ -548,7 +556,8 @@ function get_nth {
 
     local gn_tmp_v
     strip_n "${tuple}" "${sep}" "${idx}" gn_tmp_v
-    out_var="${gn_tmp_v%%${sep}*}"
+    # shellcheck disable=SC2034 # out_var is a reference to another variable
+    out_var="${gn_tmp_v%%"${sep}"*}"
 }
 
 function strip_n_c {
@@ -735,6 +744,7 @@ fi
 #
 
 function xread {
+    # shellcheck disable=SC2162 # -r may be passed to read through args
     read "${@}" || :
 }
 
@@ -765,6 +775,7 @@ function simple_report {
     if [[ "${limit_var}" -gt 0 ]] && [[ "${limit_var}" -lt "${lineno}" ]]; then
         echo "Top ${limit_var} largest ${caption} files (of ${lineno} files total):"
         echo
+        # shellcheck disable=SC2154 # awk_simple_prog is assigned through xread
         xsort --reverse --numeric-sort "${file}" | \
             head --lines "${limit_var}" | \
             sed -e 's/:/ /' | \
@@ -849,6 +860,7 @@ function changed_report {
     if [[ "${limit_var}" -gt 0 ]] && [[ "${limit_var}" -lt "${lineno}" ]]; then
         echo "Top ${limit_var} ${caption} in size files (of ${lineno} files total):"
         echo
+        # shellcheck disable=SC2154 # awk_changed_prog is assigned through xread
         xsort --reverse --numeric-sort "${file}" | \
             head --lines "${limit_var}" | \
             changed_tuple_to_fields | \
@@ -890,4 +902,5 @@ size_diff_files=(
     "${wd}/deleted_entries_total_size_diff"
     "${wd}/changed_entries_total_size_diff"
 )
+# shellcheck disable=SC2154 # awk_total_size_prog is assigned through xread
 xawk "${awk_total_size_prog}" <<<$(($(cat "${size_diff_files[@]}" | paste -sd+ -)))
