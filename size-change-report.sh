@@ -14,7 +14,7 @@
 ### spec is a string in one of three forms:
 ### release:<channel>:<board>:<version>:<kind> (e.g. release:alpha:amd64-usr:3480.0.0:old)
 ### bincache:<arch>:<version>:<kind> (e.g. bincache:amd64:3483.0.0+weekly-updates-11:wtd)
-### file:<path>:<kind>
+### local:<dirpath>:<kind>
 ###
 ### channel: alpha, beta, stable, lts
 ### board: amd64-usr, arm64-usr
@@ -117,7 +117,7 @@ function file_from_kind {
 #
 # release:CHANNEL:BOARD:VERSION:KIND
 # bincache:ARCH:VERSION:KIND
-# file:PATH:KIND
+# local:DIRPATH:KIND
 function handle_spec {
     local spec="${1}"; shift
     local output="${1}"; shift
@@ -159,16 +159,15 @@ function handle_spec {
             curl --location --silent -S -o "${output}" "${url}/${file}"
             echo "${kind}" >"${output_kind}"
             ;;
-        file)
+        local)
             if [[ "${#spec_ar[@]}" -ne 3 ]]; then
-                fail "Invalid file spec '${spec}', should be in form of file:PATH:KIND"
+                fail "Invalid file spec '${spec}', should be in form of local:DIRPATH:KIND"
             fi
-            local path kind
-            path="${spec_ar[1]}"
+            local path kind file
+            dirpath="${spec_ar[1]}"
             kind="${spec_ar[2]}"
-            # only validate kind in spec
-            file_from_kind "${spec}" "${kind}" >/dev/null
-            cp -a "${path}" "${output}"
+            file=$(file_from_kind "${spec}" "${kind}")
+            cp -a "${dirpath%/}/${file}" "${output}"
             echo "${kind}" >"${output_kind}"
             ;;
         *)
