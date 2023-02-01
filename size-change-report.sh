@@ -816,8 +816,8 @@ xread -r -d '' awk_changed_prog <<'EOF'
     old_path=$4
     new_path=$5
 
-    if (old_path != new path) printf "%s (from %s)", new_path, old_path
-    else printf "%s" new_path
+    if (old_path != new_path) printf "%s (from %s)", new_path, old_path
+    else printf "%s", new_path
     printf " by %d bytes", bytes_diff
     kbytes=bytes_diff / 1024
     mbytes=kbytes / 1024
