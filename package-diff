@@ -16,6 +16,8 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
   echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
   echo "Alternatively, set CALCSIZE=1 to sum up the file sizes from flatcar_production_image_contents.txt (/boot and /usr, excluding symlinks and directories)"
+  echo "  If WITHNEWSTUFF is set to 1, this will try fetching the disk usage reports from the server instead"
+  echo "  If this fails, falls back to the old method."
   exit 1
 fi
 
@@ -37,6 +39,7 @@ CUTKERNEL="${CUTKERNEL-0}"
 CALCSIZE="${CALCSIZE-0}"
 WITHNEWSTUFF="${WITHNEWSTUFF-0}"
 WTD=0
+NEWCALCSIZE=0
 
 A="$(mktemp "/tmp/$VERSION_A-XXXXXX")"
 B="$(mktemp "/tmp/$VERSION_B-XXXXXX")"
@@ -74,19 +77,27 @@ function download {
     return 0
 }
 
-if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_production_image_initrd_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
-    if [[ "${WITHNEWSTUFF}" = '1' ]] && download "${FILE%.*}_wtd.txt"; then
-        WTD=1
-    else
-        if [[ "${WITHNEWSTUFF}" = '1' ]]; then
-            echo "WTD variants of the contents files missing, falling back to old files"
-        fi
-        if ! download "${FILE}"; then
-            echo "Failed to download contents files"
-            exit 1
+if [[ "${WITHNEWSTUFF}" = '1' ]]; then
+    if [[ "${FILE}" = flatcar_production_image_contents.txt ]] && \
+           [[ "${CALCSIZE}" = 1 ]]; then
+        if download flatcar_production_image_disk_usage.txt; then
+            NEWCALCSIZE=1
+        else
+            echo "Disk usage files missing, falling back to the contents files"
         fi
     fi
-else
+
+    if [[ "${NEWCALCSIZE}" = '0' ]]; then
+        if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_production_image_initrd_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
+            if download "${FILE%.*}_wtd.txt"; then
+                WTD=1
+            else
+                echo "WTD variants of the contents files missing, falling back to old files"
+            fi
+        fi
+    fi
+fi
+if [[ "${NEWCALCSIZE}" = '0' ]] && [[ "${WTD}" = '0' ]]; then
     if ! download "${FILE}"; then
         echo "Failed to download contents files"
         exit 1
@@ -179,7 +190,9 @@ function no_hardlinks {
     fi
 }
 
-if [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ] || [ "$FILE" = flatcar_production_image_initrd_contents.txt ]; then
+if [[ "${NEWCALCSIZE}" = '1' ]]; then
+    : # nothing to do, A and B are already prepared
+elif [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ] || [ "$FILE" = flatcar_production_image_initrd_contents.txt ]; then
   if [[ "${WTD}" = '0' ]]; then
     # Cut date and time noise away
     sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
