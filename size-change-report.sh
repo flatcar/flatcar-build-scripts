@@ -941,7 +941,8 @@ xread -r -d '' awk_changed_prog <<'EOF'
     if (kbytes >= 1) printf " (%d kbytes", kbytes
     if (mbytes >= 1) printf ", %d mbytes", mbytes
     if (gbytes >= 1) printf ", %d gbytes", gbytes
-    if (kbytes >= 1) printf ")\n"
+    if (kbytes >= 1) printf ")"
+    printf "\n"
 }
 EOF
 
