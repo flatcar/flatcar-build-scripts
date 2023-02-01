@@ -260,7 +260,7 @@ function simplified_kind {
     echo "${kind}"
 }
 
-if any_missing "${wd}/output" "${wd}/detailed_output"; then
+if any_missing "${wd}/output" "${wd}/detailed_output" "${wd}/for_cache_key_cache"; then
     echo "Generating file listing diffs"
     kind=$(simplified_kind "${wd}/kind-of-A")
     for f in "${wd}/A" "${wd}/B"; do
@@ -292,13 +292,13 @@ if any_missing "${wd}/output" "${wd}/detailed_output"; then
             # Keep only device ID, inode, hardlink count, size and path
             xawk '{ print $2 " " $3 " " $4 " " $5 " " $6 }' "${f}.4b.cut-kernel" >"${f}.5b.needed-parts-only"
         fi
-        # Generate final form with lines having cache key, hardlink count, size and path info only
+        # Generate a single form with lines having cache key, hardlink count, size and path info only
         if [[ "${kind}" = 'old' ]]; then
             # Cache key will be made from hardlink count and size
             # 1 - hardlink count
             # 2 - size
             # 3 - path
-            xawk '{ print $1 "-" $2 " " $1 " " $2 " " $3 }' "${f}.5b.needed-parts-only" >"${f}.6b.final-form"
+            xawk '{ print $1 "-" $2 " " $1 " " $2 " " $3 }' "${f}.5b.needed-parts-only" >"${f}.6b.single-form"
         else
             # Cache key will be made from device ID and inode
             # 1 - device ID
@@ -306,8 +306,14 @@ if any_missing "${wd}/output" "${wd}/detailed_output"; then
             # 3 - hardlink count
             # 4 - size
             # 5 - path
-            xawk '{ print $1 "-" $2 " " $3 " " $4 " " $5 }' "${f}.5b.needed-parts-only" >"${f}.6b.final-form"
+            xawk '{ print $1 "-" $2 " " $3 " " $4 " " $5 }' "${f}.5b.needed-parts-only" >"${f}.6b.single-form"
         fi
+        # Generate a final form without cache key for smaller diffs
+        # (so, only hardlink count, size and path info).
+        xawk '{ print $2 " " $3 " " $4 }' "${f}.6b.single-form" >"${f}.7ba.final-form-no-cache-key"
+
+        # Generate a file with lines having cache key and path only.
+        xawk '{ print $1 " " $4 }' "${f}.6b.single-form" >"${f}.7bb.final-form-only-cache-key"
     done
 
     # Generate simple output, without the diff noise. File format:
@@ -321,21 +327,104 @@ if any_missing "${wd}/output" "${wd}/detailed_output"; then
 
     # use a ginormous amount of context to capture all the unmodified
     # files, will be needed for hardlink hunting
-    lineno_a=$(file_lineno "${wd}/A.6b.final-form")
-    lineno_b=$(file_lineno "${wd}/B.6b.final-form")
+    lineno_a=$(file_lineno "${wd}/A.7ba.final-form-no-cache-key")
+    lineno_b=$(file_lineno "${wd}/B.7ba.final-form-no-cache-key")
     lineno=${lineno_a}
     if [[ ${lineno} -lt ${lineno_b} ]]; then
         lineno=${lineno_b}
     fi
-    # Generate detailed output, without the diff noise. File format;
-    # <diff sign><cache key> <hardlink count> <size> <path>
+    # Generate detailed output, without the diff noise and cache keys. File format;
+    # <diff sign><hardlink count> <size> <path>
     xgit-diff \
         --unified="${lineno}" \
         --no-index \
         -- \
-        "${wd}/A.6b.final-form" "${wd}/B.6b.final-form" | \
+        "${wd}/A.7ba.final-form-no-cache-key" "${wd}/B.7ba.final-form-no-cache-key" | \
         tail --lines +6 >"${wd}/detailed_output"
+    # Generate detailed output, without the diff noise, size and hardlink info. File format;
+    # <diff sign><cache key> <path>
+    xgit-diff \
+        --unified="${lineno}" \
+        --no-index \
+        -- \
+        "${wd}/A.7bb.final-form-only-cache-key" "${wd}/B.7bb.final-form-only-cache-key" | \
+        tail --lines +6 >"${wd}/for_cache_key_cache"
 fi
+
+#
+# cache key cache
+#
+
+declare -A plus_key_cache
+declare -A space_key_cache
+declare -A minus_key_cache
+plus_key_cache=()
+space_key_cache=()
+minus_key_cache=()
+
+cache_key_cache_prepared=
+
+function fill_cache_key_caches {
+    if [[ -n "${cache_key_cache_prepared}" ]]; then
+        return 0
+    fi
+    echo "Filling cache key caches"
+    local diff_cache_key path cache_key
+    while read -r diff_cache_key path; do
+        cache_key="${diff_cache_key#[-+ ]}"
+        case "${diff_cache_key}" in
+            +)
+                plus_key_cache[${path}]="${cache_key}"
+                ;;
+            -)
+                minus_key_cache[${path}]="${cache_key}"
+                ;;
+            *)
+                space_key_cache[${path}]="${cache_key}"
+                ;;
+        esac
+    done <"${wd}/for_cache_key_cache"
+    cache_key_cache_prepared=x
+}
+
+function get_old_cache_key {
+    local path="${1}"; shift
+    local gock_cache_key_var_name="${1}"; shift
+    local -n gock_cache_key_var_ref="${gock_cache_key_var_name}"
+
+    gock_cache_key_var_ref="${minus_key_cache[${path}]:-}"
+    if [[ -z "${gock_cache_key_var_ref}" ]]; then
+        gock_cache_key_var_ref="${space_key_cache[${path}]}"
+        if [[ -z "${gock_cache_key_var_ref}" ]]; then
+            echo "NO OLD CACHE KEY FOUND FOR '${path}', EXPECT A BAD REPORT!"
+        fi
+    fi
+}
+
+function get_new_cache_key {
+    local path="${1}"; shift
+    local gnck_cache_key_var_name="${1}"; shift
+    local -n gnck_cache_key_var_ref="${gnck_cache_key_var_name}"
+
+    gnck_cache_key_var_ref="${plus_key_cache[${path}]:-}"
+    if [[ -z "${gnck_cache_key_var_ref}" ]]; then
+        gnck_cache_key_var_ref="${space_key_cache[${path}]}"
+        if [[ -z "${gnck_cache_key_var_ref}" ]]; then
+            echo "NO NEW CACHE KEY FOUND FOR '${path}', EXPECT A BAD REPORT!"
+        fi
+    fi
+}
+
+function get_unchanged_cache_key {
+    local path="${1}"; shift
+    local guck_cache_key_var_name="${1}"; shift
+    local -n guck_cache_key_var_ref="${guck_cache_key_var_name}"
+
+    guck_cache_key_var_ref="${space_key_cache[${path}]:-}"
+    if [[ -z "${guck_cache_key_var_ref}" ]]; then
+        echo "NO UNCHANGED CACHE KEY FOUND FOR '${path}', EXPECT A BAD REPORT!"
+    fi
+}
 
 #
 # categorize stuff into new, deleted, changed and unchanged
@@ -375,6 +464,7 @@ function munge_numbers_into_regexps {
 
 # new
 if any_missing "${wd}/new_entries"; then
+    fill_cache_key_caches
     echo "Generating new entries"
     new_entries=()
     mapfile -t new_entries < <(xgrep -e '^+/' "${wd}/output" | sed -e 's/^+//')
@@ -386,10 +476,11 @@ if any_missing "${wd}/new_entries"; then
         regexp='^+.* \.'"${regexp}"'$'
         fields=()
         while read -r -a fields; do
-            cache_key="${fields[0]}"
-            hardlink="${fields[1]}"
-            size="${fields[2]}"
-            path="${fields[3]}"
+            # strip diff sign from first field
+            hardlink="${fields[0]#[-+ ]}"
+            size="${fields[1]}"
+            path="${fields[2]}"
+            get_new_cache_key "${path}" cache_key
             printf '%s:%s:%s:%s\n' "${cache_key}" "${hardlink}" "${size}" "${path}" >>"${wd}/new_entries"
         done < <(xgrep -e "${regexp}" "${wd}/detailed_output")
     done
@@ -398,6 +489,7 @@ fi
 
 # deleted
 if any_missing "${wd}/deleted_entries"; then
+    fill_cache_key_caches
     echo "Generating deleted entries"
     deleted_entries=()
     mapfile -t deleted_entries < <(xgrep -e '^-/' "${wd}/output" | sed -e 's/^-//')
@@ -409,10 +501,11 @@ if any_missing "${wd}/deleted_entries"; then
         regexp='^-.* \.'"${regexp}"'$'
         fields=()
         while read -r -a fields; do
-            cache_key="${fields[0]}"
-            hardlink="${fields[1]}"
-            size="${fields[2]}"
-            path="${fields[3]}"
+            # strip diff sign from first field
+            hardlink="${fields[0]#[-+ ]}"
+            size="${fields[1]}"
+            path="${fields[2]}"
+            get_old_cache_key "${path}" cache_key
             printf '%s:%s:%s:%s\n' "${cache_key}" "${hardlink}" "${size}" "${path}" >>"${wd}/deleted_entries"
         done < <(xgrep -e "${regexp}" "${wd}/detailed_output")
     done
@@ -440,17 +533,18 @@ function munge_so_numbers_into_regexps {
 
 # changed
 if any_missing "${wd}/changed_entries"; then
+    fill_cache_key_caches
     echo "Generating changed entries"
+    # get only added/removed lines and strip the diff sign
     xgrep '^+' "${wd}/detailed_output" | sed -e 's/^.//' >"${wd}/diff-plus-only"
     xgrep '^-' "${wd}/detailed_output" | sed -e 's/^.//' >"${wd}/diff-minus-only"
 
     truncate --size 0 "${wd}/changed_entries"
     fields=()
     while read -r -a fields; do
-        old_cache_key="${fields[0]}"
-        old_hardlink="${fields[1]}"
-        old_size="${fields[2]}"
-        old_path="${fields[3]}"
+        old_hardlink="${fields[0]}"
+        old_size="${fields[1]}"
+        old_path="${fields[2]}"
         regexp=$(munge_path_into_regexp "${old_path}")
         regexp=$(munge_so_numbers_into_regexps "${regexp}")
         regexp='^.* '"${regexp}"'$'
@@ -499,10 +593,12 @@ if any_missing "${wd}/changed_entries"; then
             fi
         fi
         read -r -a fields <<<"${results[0]}"
-        new_cache_key="${fields[0]}"
-        new_hardlink="${fields[1]}"
-        new_size="${fields[2]}"
-        new_path="${fields[3]}"
+        new_hardlink="${fields[0]}"
+        new_size="${fields[1]}"
+        new_path="${fields[2]}"
+        get_old_cache_key "${old_path}" old_cache_key
+        get_new_cache_key "${new_path}" new_cache_key
+        # shellcheck disable=SC2154 # old_cache_key and new_cache_key are assigned indirectly just above
         printf '%s:%s:%s:%s:%s:%s:%s%s%s\n' "${old_cache_key}" "${new_cache_key}" "${old_hardlink}" "${new_hardlink}" "${old_size}" "${new_size}" "${old_path}" "${PATH_SEP}" "${new_path}" >>"${wd}/changed_entries"
     done <"${wd}/diff-minus-only"
     unset results results2 fields
@@ -510,15 +606,17 @@ fi
 
 # unchanged
 if any_missing "${wd}/unchanged_entries"; then
+    fill_cache_key_caches
     echo "Generating unchanged entries"
     fields=()
     truncate --size 0 "${wd}/unchanged_entries"
     while read -r -a fields; do
-        cache_key="${fields[0]}"
-        hardlink="${fields[1]}"
-        size="${fields[2]}"
-        path="${fields[3]}"
-        printf '%s:%s:%s:%s\n' "${cache_key}" "${hardlink}" "${size}" "${path}" >>"${wd}/unchanged_entries"
+        # strip diff sign from first field
+        hardlink="${fields[0]#[-+ ]}"
+        size="${fields[1]}"
+        path="${fields[2]}"
+        get_unchanged_cache_key "${path}" cache_key
+        printf '%s:%s:%s:%s\n' "${cache_key}" "${hardlink}" "${size}" "${path}" >>"${wd}/unchanged_entries_nck"
     done < <(xgrep -e '^ ' "${wd}/detailed_output")
     unset fields
 fi
