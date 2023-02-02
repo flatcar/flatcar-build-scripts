@@ -16,7 +16,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Set FILESONLY=1 to reduce the flatcar_production_image_contents.txt file to contain only path information"
   echo "Set CUTKERNEL=1 to reduce the flatcar_production_image_contents.txt file to contain no kernel version in paths but just 'a.b.c-flatcar'"
   echo "Alternatively, set CALCSIZE=1 to sum up the file sizes from flatcar_production_image_contents.txt (/boot and /usr, excluding symlinks and directories)"
-  echo "  If WITHNEWSTUFF is set to 1, this will try fetching the disk usage reports from the server instead"
+  echo "  If WITHNEWSTUFF is set to 1 (the default), this will try fetching the disk usage reports from the server instead"
   echo "  If this fails, falls back to the old method."
   exit 1
 fi
