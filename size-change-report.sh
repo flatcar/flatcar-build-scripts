@@ -227,8 +227,8 @@ function xawk {
     awk "${@}" || :
 }
 
-function xgit-diff {
-    git diff "${@}" || :
+function xgit {
+    git "${@}" || :
 }
 
 function xsort {
@@ -318,7 +318,7 @@ if any_missing "${wd}/output" "${wd}/detailed_output" "${wd}/for_cache_key_cache
 
     # Generate simple output, without the diff noise. File format:
     # <diff sign><simplified path>
-    xgit-diff \
+    xgit diff \
         --no-index \
         -- \
         "${wd}/A.6a.no-slsa" "${wd}/B.6a.no-slsa" | \
@@ -335,7 +335,7 @@ if any_missing "${wd}/output" "${wd}/detailed_output" "${wd}/for_cache_key_cache
     fi
     # Generate detailed output, without the diff noise and cache keys. File format;
     # <diff sign><hardlink count> <size> <path>
-    xgit-diff \
+    xgit diff \
         --unified="${lineno}" \
         --no-index \
         -- \
@@ -343,7 +343,7 @@ if any_missing "${wd}/output" "${wd}/detailed_output" "${wd}/for_cache_key_cache
         tail --lines +6 >"${wd}/detailed_output"
     # Generate detailed output, without the diff noise, size and hardlink info. File format;
     # <diff sign><cache key> <path>
-    xgit-diff \
+    xgit diff \
         --unified="${lineno}" \
         --no-index \
         -- \
