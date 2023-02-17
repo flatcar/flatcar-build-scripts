@@ -232,7 +232,7 @@ function xgit {
 }
 
 function xsort {
-    sort "${@}" || :
+    sort "${@}" 2>/dev/null || :
 }
 
 function file_lineno {
