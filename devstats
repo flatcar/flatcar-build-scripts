@@ -111,6 +111,9 @@ for REPO in "${REPOS[@]}"; do
       if [ "${AUTHOR}" = "Iago López Galeiras" ]; then
         AUTHOR="Iago Lopez Galeiras"
       fi
+      if [ "${AUTHOR}" = "krnowak" ]; then
+        AUTHOR="Krzesimir Nowak"
+      fi
       PREV_COUNT="${COUNTER["${AUTHOR}"]-0}"
       COUNTER["${AUTHOR}"]=$((COUNT + PREV_COUNT))
       PREV_EMAILS="${EMAILS["${AUTHOR}"]-}"
