@@ -18,6 +18,11 @@ NEBRASKA_URL="$2"
 ORIGIN_SSH_URL="$3"
 VERSION="$4"
 
+# Used for debugging/testing of the staging server:
+NOUPLOAD="${NOUPLOAD-}"
+# touch /tmp/flatcar_production_update.gz
+# NOUPLOAD=1 ./upload_package /tmp https://staging.updateservice.flatcar-linux.net notused 9.9.9
+
 ARCH="${ARCH:-amd64-usr}"
 echo "Environment variable ARCH is specified as ${ARCH}"
 
@@ -54,8 +59,12 @@ sha256sum "${UPDATE_PATH}" > "${UPDATE_CHECKSUM_PATH}"
 echo "Copying update payload to update server"
 
 SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/${ARCH}/${VERSION}/"
-ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
-scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
+if [ "${NOUPLOAD}" = "" ]; then
+  ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
+  scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
+else
+  echo "NOUPLOAD set, skipping upload to origin server"
+fi
 
 # Nebraska's arch enum values:
 # https://github.com/kinvolk/nebraska/blob/953a1e672f42dea4530161a31756db239e0bb8aa/pkg/api/arch.go#L9
