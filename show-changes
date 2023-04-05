@@ -48,30 +48,48 @@ for section in security bugfixes changes updates; do
   esac
   echo
   for repo in coreos-overlay portage-stable scripts; do
-    if [ "${repo}" = scripts ] && [ ! -e "${repo}" ]; then
-      # Support the previous repo name for old checkouts
-      repo="flatcar-scripts"
-    fi
     OLDREF="${OLD}"
     NEWREF="${NEW}"
-    REPOPATH="${repo}"
-    # For the submodule detection, assume that the "scripts" repo name is ok
-    if [ "${repo}" != "scripts" ] && [ -d "scripts/sdk_container/src/third_party/${repo}" ]; then
+    OLDREPOPATH="${repo}"
+    NEWREPOPATH="${repo}"
+    OLDPREPEND=""
+    NEWPREPEND=""
+    if [ "${repo}" != "scripts" ]; then
       if [ "${FETCH}" = 1 ]; then
         git -C "scripts" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
       fi
-      # Find the pinned submodule refs because there may be no release tags inside the submodules
-      # Pipe to awk instead of using --object-only for git 2.35 support
-      OLDREF=$(git -C "scripts" ls-tree "${OLD}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
-      NEWREF=$(git -C "scripts" ls-tree "${NEW}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
-      REPOPATH="scripts/sdk_container/src/third_party/${repo}"
+      # Check if we are in the monorepo case where we can use the scripts ref or not
+      if [ "$(git -C scripts show "${OLD}":.gitmodules 2>/dev/null)" != "" ]; then
+        # Old version is not a monorepo but has submodules.
+        # Find the pinned submodule refs because there may be no release tags inside the submodules
+        # Pipe to awk instead of using --object-only for git 2.35 support
+        OLDREF=$(git -C "scripts" ls-tree "${OLD}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
+        # We can't assume anymore that the submodule repo is available under scripts/
+        if [ ! -d "${repo}" ]; then
+          git clone "git@github.com:flatcar/${repo}.git"
+        fi
+      else
+        OLDPREPEND="sdk_container/src/third_party/${repo}/"
+        OLDREPOPATH="scripts"
+      fi
+      if [ "$(git -C scripts show "${NEW}":.gitmodules 2>/dev/null)" != "" ]; then
+        # New version is not a monorepo but has submodules.
+        NEWREF=$(git -C "scripts" ls-tree "${NEW}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
+        if [ ! -d "${repo}" ]; then
+          git clone "git@github.com:flatcar/${repo}.git"
+        fi
+      else
+        NEWPREPEND="sdk_container/src/third_party/${repo}/"
+        NEWREPOPATH="scripts"
+      fi
     fi
     if [ "${FETCH}" = 1 ]; then
-      git -C "${REPOPATH}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
+      git -C "${OLDREPOPATH}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
+      git -C "${NEWREPOPATH}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
     fi
     if [ "${section}" = "security" ] && [ "${repo}" = "coreos-overlay" ]; then
-      FROM_KERNEL=$(git -C "${REPOPATH}" show "${OLDREF}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
-      TO_KERNEL=$(git -C "${REPOPATH}" show "${NEWREF}":sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      FROM_KERNEL=$(git -C "${OLDREPOPATH}" show "${OLDREF}":"${OLDPREPEND}"sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      TO_KERNEL=$(git -C "${NEWREPOPATH}" show "${NEWREF}":"${NEWPREPEND}"sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
       if [ "${FROM_KERNEL}" != "${TO_KERNEL}" ]; then
         KERNEL_ENTRIES=$("${SCRIPTFOLDER}"/show-fixed-kernel-cves.py -f "${FROM_KERNEL}" -t "${TO_KERNEL}")
         if [ "${KERNEL_ENTRIES}" != "" ]; then
@@ -79,7 +97,19 @@ for section in security bugfixes changes updates; do
         fi
       fi
     fi
-    git -C "${REPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLDREF}..${NEWREF}" -- "changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+
+    # The assumption is that the old ref is really older, so we can assume that old would have submodules while new doesn't have them anymore
+    if [ "${OLDREPOPATH}" != "${NEWREPOPATH}" ] && [ "${NEWREPOPATH}" = "scripts" ]; then
+      # One patch before the ./checkout helper disappeared we still had submodules
+      LAST_SUBMOD_SCRIPTS_REF="$(git -C scripts rev-list -n 1 "${NEWREF}" -- checkout)~1"
+      LAST_SUBMOD_REF=$(git -C scripts ls-tree "${LAST_SUBMOD_SCRIPTS_REF}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
+      # The patch that removed the submodule overrides README has the merge history
+      FIRST_MONO_REF=$(git -C scripts rev-list -n 1 "${NEWREF}" -- sdk_container/git-override/README.md)
+      git -C "${OLDREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLDREF}..${LAST_SUBMOD_REF}" -- "${OLDPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${FIRST_MONO_REF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+    else
+      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLDREF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+    fi
     # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
     # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
     # If an existing file got changed, we assume that this is just a correction for the old change but
