@@ -41,6 +41,12 @@ trap '{ export EXT="$?"; rm -rf "${REPOS_DIR}" && exit "${EXT}"; }' EXIT
 
 cd "${REPOS_DIR}"
 
+# Check if we are in the monorepo case
+[ ! -d scripts ] && git clone --recurse-submodules "git@github.com:flatcar/scripts"
+if [ "$(git -C scripts show "origin/${SRC_BUILD_BRANCH}":.gitmodules 2>/dev/null)" = "" ]; then
+  FLATCAR_REPOS=("scripts")
+fi
+
 for repo in "${FLATCAR_REPOS[@]}"; do
   # Note: systemd repo has neither flatcar-build-* branches nor flatcar-master
   # branch. So we should skip systemd completely.
@@ -62,7 +68,7 @@ for repo in "${FLATCAR_REPOS[@]}"; do
   fi
 
   echo "Mirroring a branch ${src_branch} to ${DST_BUILD_BRANCH}"
-  git checkout -B "${DST_BUILD_BRANCH}" "origin/${src_branch}"
+  git checkout --recurse-submodules --force -B "${DST_BUILD_BRANCH}" "origin/${src_branch}"
   git push ${PUSH_OPTIONS} origin "${DST_BUILD_BRANCH}"
 
   popd

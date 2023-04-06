@@ -36,6 +36,17 @@ echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF
 REPOS="coreos-overlay portage-stable scripts"
 # scripts should be last as it binds the other two together as submodules, if they exist
 
+# Check if we are in the monorepo, in this case only work on "scripts"
+cd "$SCRIPTFOLDER/.."
+if [ ! -d "scripts" ]; then
+  git clone --recurse-submodules 'git@github.com:flatcar/scripts.git'
+fi
+git -C scripts fetch origin
+if [ "$(git -C scripts show "origin/$MAINT-$MAJOR":.gitmodules 2>/dev/null)" = "" ]; then
+  REPOS="scripts"
+fi
+
+
 for REPO in ${REPOS}; do
   echo "Preparing ${REPO}"
   cd "$SCRIPTFOLDER/.."
@@ -52,13 +63,17 @@ for REPO in ${REPOS}; do
   git tag -d "$TAG" || echo "No local tags deleted"
   git push --delete origin "$TAG" || echo "No remote tags deleted"
   # Check if we have to update the submodules while tagging
-  if [ "${REPO}" = "scripts" ] && git show "origin/$MAINT-$MAJOR":sdk_container/src > /dev/null 2>/dev/null ; then
+  if [ "${REPO}" = "scripts" ]; then
     if [ "${REF}" != "origin/$MAINT-$MAJOR" ]; then
       echo "Error: can't find the scripts branch to push the updated submodule to, you can't overwrite SCRIPTS_REF anymore"
       exit 1
     fi
-    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules"
-    git checkout --recurse-submodules -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+    if [ "$(git status --porcelain)" != "" ]; then
+      echo "Error: uncommitted changes found which will be lost"
+      exit 1
+    fi
+    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules and create version file"
+    git checkout --force --recurse-submodules -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
     git pull --recurse-submodules || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
     if [ "$(git log HEAD.."origin/$MAINT-$MAJOR")" != "" ] || ! git diff --quiet "origin/$MAINT-$MAJOR" ; then
       echo "Error: local changes in your 'scripts' repo"
@@ -68,14 +83,16 @@ for REPO in ${REPOS}; do
     (
       source sdk_lib/sdk_container_common.sh
       source ci-automation/ci_automation_common.sh
-      cd "sdk_container/src/third_party/coreos-overlay"; git fetch --all --tags --force; cd -
-      cd "sdk_container/src/third_party/portage-stable"; git fetch --all --tags --force; cd -
-      update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
+      if [ "$(git show "origin/$MAINT-$MAJOR":.gitmodules 2>/dev/null)" != "" ]; then
+        cd "sdk_container/src/third_party/coreos-overlay"; git fetch --all --tags --force; cd -
+        cd "sdk_container/src/third_party/portage-stable"; git fetch --all --tags --force; cd -
+        update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
+      fi
       create_versionfile "${SDK_VERSION}" "${VERSION}"
       SIGN=1 update_and_push_version "${TAG}" true
     )
   else
-    # Tag the other repos or the LTS scripts repo
+    # Tag the other repos
     echo "Tagging ${REF} as ${TAG}"
     git tag -s "${TAG}" -m "${TAG}" "${REF}"
     echo "Pushing tag"
