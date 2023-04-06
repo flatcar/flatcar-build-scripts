@@ -70,8 +70,8 @@ if [[ $# -lt 1 ]]; then
     fail 'expected at least one package, try --help or -h'
 fi
 
-if [[ ! -e '.git' ]]; then
-    fail "sync is only possible from top-level directory of the repo"
+if [[ ! -e 'profiles/repo_name' ]]; then
+    fail 'sync is only possible from ebuild packages top-level directory (a directory from which "./profiles/repo_name" is accessible)'
 fi
 
 if [[ ! -d "${GLOBAL_gentoo_repo}" ]]; then
