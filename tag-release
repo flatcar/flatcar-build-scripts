@@ -68,12 +68,15 @@ for REPO in ${REPOS}; do
       echo "Error: can't find the scripts branch to push the updated submodule to, you can't overwrite SCRIPTS_REF anymore"
       exit 1
     fi
-    if [ "$(git status --porcelain)" != "" ]; then
+
+    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules and create version file"
+    git checkout --force --recurse-submodules -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+
+    if [ "$(git status --porcelain --untracked-files=no)" != "" ]; then
       echo "Error: uncommitted changes found which will be lost"
       exit 1
     fi
-    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules and create version file"
-    git checkout --force --recurse-submodules -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+
     git pull --recurse-submodules || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
     if [ "$(git log HEAD.."origin/$MAINT-$MAJOR")" != "" ] || ! git diff --quiet "origin/$MAINT-$MAJOR" ; then
       echo "Error: local changes in your 'scripts' repo"
