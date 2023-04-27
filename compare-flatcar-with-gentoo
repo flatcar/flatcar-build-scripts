@@ -9,8 +9,7 @@
 #
 # ./compare-flatcar-with-gentoo
 #
-# export COREOS_OVERLAY=../../co-repo
-# export PORTAGE_STABLE=../../ps-repo
+# export SCRIPTS=../../scripts-repo
 # export GENTOO=../../g-repo
 # export JSON=x
 # ./compare-flatcar-with-gentoo
@@ -18,13 +17,10 @@
 # Environment variables:
 # ======================
 #
-# COREOS_OVERLAY:
+# SCRIPTS:
 #
-# A path to the coreos-overlay git repository.
-#
-# PORTAGE_STABLE:
-#
-# A path to the portage-stable git repository.
+# A path to the scripts git repository. It is assumed that
+# coreos-overlay and portage-stable are stored in this repo.
 #
 # GENTOO:
 #
@@ -57,8 +53,7 @@ shopt -s extglob
 
 this_dir="$(dirname "${0}")"
 
-: ${COREOS_OVERLAY:="${this_dir}/../coreos-overlay"}
-: ${PORTAGE_STABLE:="${this_dir}/../portage-stable"}
+: ${SCRIPTS:="${this_dir}/../scripts"}
 : ${GENTOO:="${this_dir}/../gentoo"}
 : ${JSON:=}
 : ${WORKDIR:="$(mktemp --directory "${this_dir}/cfwg.XXXXXXXXXX")"}
@@ -88,10 +83,12 @@ drop_trailing_slash() {
     var_ref="${var_ref%%*(/)}"
 }
 
-drop_trailing_slash PORTAGE_STABLE
-drop_trailing_slash COREOS_OVERLAY
+drop_trailing_slash SCRIPTS
 drop_trailing_slash GENTOO
 drop_trailing_slash WORKDIR
+
+COREOS_OVERLAY="${SCRIPTS}/sdk_container/src/third_party/coreos-overlay"
+PORTAGE_STABLE="${SCRIPTS}/sdk_container/src/third_party/portage-stable"
 
 mkdir -p "${WORKDIR}"
 
@@ -101,6 +98,7 @@ else
     debug "WORKDIR='${WORKDIR}'"
 fi
 
+debug "SCRIPTS=${SCRIPTS}"
 debug "PORTAGE_STABLE=${PORTAGE_STABLE}"
 debug "COREOS_OVERLAY=${COREOS_OVERLAY}"
 debug "GENTOO=${GENTOO}"
@@ -468,8 +466,8 @@ if [[ ! -e "${WORKDIR}/duplicated-pkgs" ]] || \
     cat "${WORKDIR}/coreos-overlay-pkgs" "${WORKDIR}/coreos-overlay-eclasses" "${WORKDIR}/coreos-overlay-misc" | sort >"${WORKDIR}/coreos-overlay-all-updatable-things"
 
     debug "finding all updatable things under automation in portage-stable"
-    if [[ -e "${PORTAGE_STABLE}/.github/workflows/packages-list" ]]; then
-        grep '^[^#]' "${PORTAGE_STABLE}/.github/workflows/packages-list" | sort >"${WORKDIR}/portage-stable-under-automation"
+    if [[ -e "${SCRIPTS}/.github/workflows/portage-stable-packages-list" ]]; then
+        grep '^[^#]' "${SCRIPTS}/.github/workflows/portage-stable-packages-list" | sort >"${WORKDIR}/portage-stable-under-automation"
     else
         touch "${WORKDIR}/portage-stable-under-automation"
     fi
