@@ -361,19 +361,41 @@ mkdir -p "${GNUPGHOME}"
 chmod 700 "${GNUPGHOME}"
 trap 'rm -rf ${GNUPGHOME}' EXIT
 
-OUTPUT_PATH="${DATA_DIR}/flatcar_production_update.gz"
-
 # Setup GnuPG for verifying the image signature
 gpg --batch --quiet --import <<< "${GPG_KEY}"
 
 echo "Verifying files"
-gpg --verify "${DATA_DIR}/flatcar_production_update.bin.bz2.sig"
-gpg --verify "${DATA_DIR}/flatcar_production_image.vmlinuz.sig"
+# Check that we have a signature for the files we work on
+test -f "${DATA_DIR}/flatcar_production_update.bin.bz2.sig"
+test -f "${DATA_DIR}/flatcar_production_image.vmlinuz.sig"
+for FILE_PATH in "${DATA_DIR}"/*.sig; do
+  gpg --verify "${FILE_PATH}"
+done
+
+echo "Generating extension payloads"
+for EXTENSION_PATH in "${DATA_DIR}"/*.raw; do
+  # Check that we have a signature for the files we work on
+  test -f "${EXTENSION_PATH}".sig
+  OUTPUT_PATH="${EXTENSION_PATH/.raw/.gz}"
+  if [ ! -f "${OUTPUT_PATH}" ]; then
+    echo "Generating ${OUTPUT_PATH}"
+    ./core_sign_update \
+      --image "${EXTENSION_PATH}" \
+      --output "${OUTPUT_PATH}" \
+      --private_keys "${PUBLIC_KEYS_DIR}/dummy.key.pem+pkcs11:object=10;type=private" \
+      --public_keys "${PUBLIC_KEYS_DIR}/dummy.pub.pem+${PUBLIC_KEYS_DIR}/flatcar.pub.pem" \
+      --keys_separator "+"
+  else
+    echo "ERROR: Found update payload already: ${OUTPUT_PATH}."
+    exit 1
+  fi
+done
 
 echo "Extracting flatcar_production_update.bin.bz2"
 bunzip2 -f -k "${DATA_DIR}/flatcar_production_update.bin.bz2"
 
-echo "Generating update payload"
+echo "Generating generic update payload"
+OUTPUT_PATH="${DATA_DIR}/flatcar_production_update.gz"
 if [ ! -f "${OUTPUT_PATH}" ]; then
     echo "Update payload not found. Building..."
     ./core_sign_update \
