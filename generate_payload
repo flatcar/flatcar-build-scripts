@@ -373,7 +373,8 @@ for FILE_PATH in "${DATA_DIR}"/*.sig; do
 done
 
 echo "Generating extension payloads"
-for EXTENSION_PATH in "${DATA_DIR}"/*.raw; do
+shopt -s nullglob
+for EXTENSION_PATH in "${DATA_DIR}/flatcar-"*.raw "${DATA_DIR}/oem-"*.raw; do
   # Check that we have a signature for the files we work on
   test -f "${EXTENSION_PATH}".sig
   OUTPUT_PATH="${EXTENSION_PATH/.raw/.gz}"
@@ -390,6 +391,7 @@ for EXTENSION_PATH in "${DATA_DIR}"/*.raw; do
     exit 1
   fi
 done
+shopt -u nullglob
 
 echo "Extracting flatcar_production_update.bin.bz2"
 bunzip2 -f -k "${DATA_DIR}/flatcar_production_update.bin.bz2"
