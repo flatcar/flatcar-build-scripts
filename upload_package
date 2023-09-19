@@ -56,12 +56,22 @@ PAYLOAD_SHA256=$(cat "${UPDATE_PATH}" | openssl dgst -sha256 -binary | base64)
 
 sha256sum "${UPDATE_PATH}" > "${UPDATE_CHECKSUM_PATH}"
 
+EXTRA_FILES=()
+EXTRA_SUMS=()
+shopt -s nullglob
+for EXTRA_FILE in "${DATA_DIR}/oem-"*.gz "${DATA_DIR}/flatcar-"*.gz; do
+  sha256sum "${EXTRA_FILE}" > "${EXTRA_FILE}.sha256"
+  EXTRA_FILES+=("${EXTRA_FILE}")
+  EXTRA_SUMS+=("${EXTRA_FILE}.sha256")
+done
+shopt -u nullglob
+
 echo "Copying update payload to update server"
 
 SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/${ARCH}/${VERSION}/"
 if [ "${NOUPLOAD}" = "" ]; then
   ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
-  scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
+  scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "${EXTRA_FILES[@]}" "${EXTRA_SUMS[@]}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
 else
   echo "NOUPLOAD set, skipping upload to origin server"
 fi
@@ -85,6 +95,15 @@ fi
 
 echo "Uploading update payload"
 
+EMBED_EXTRA=()
+for EXTRA_FILE in "${EXTRA_FILES[@]}"; do
+  E_NAME=$(basename "${EXTRA_FILE}")
+  E_SIZE=$(stat --format='%s' "${EXTRA_FILE}")
+  E_HASH_SHA1=$(openssl dgst -sha1 -binary < "${EXTRA_FILE}" | base64)
+  E_HASH_SHA256_HEX=$(sha256sum -b "${EXTRA_FILE}" | cut -d " " -f 1)
+  EMBED_EXTRA+=("{ \"name\": \"${E_NAME}\", \"size\": \"${E_SIZE}\", \"hash\": \"${E_HASH_SHA1}\", \"hash256\": \"${E_HASH_SHA256_HEX}\" }")
+done
+EMBED_EXTRA_JOINED=$(IFS=, ; echo "${EMBED_EXTRA[*]}")
 if [ -z "${PACKAGE_ID}" ]; then
     if ! PACKAGE_JSON=$(POST /apps/"${COREOS_APP_ID}"/packages " \
         {
@@ -101,7 +120,8 @@ if [ -z "${PACKAGE_ID}" ]; then
             \"flatcar_action\":
                 {
                     \"sha256\": \"${PAYLOAD_SHA256}\"
-                }
+                },
+            \"extra_files\": [${EMBED_EXTRA_JOINED}]
         }
         " 2>&1); then
 		echo "Failed to update metadata on Nebraska."
