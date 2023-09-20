@@ -18,7 +18,7 @@
 ###
 ### channel: alpha, beta, stable, lts
 ### board: amd64-usr, arm64-usr
-### kind: old, wtd, initrd-old, initrd-wtd
+### kind: old, wtd, initrd-old, initrd-wtd, oem-${OEM}-old, oem-${OEM}-wtd
 ### arch: amd64, arm64
 ###
 ### options:
@@ -94,6 +94,7 @@ done
 function file_from_kind {
     local spec="${1}"; shift
     local kind="${1}"; shift
+    local oemid
     case "${kind}" in
         old)
             echo 'flatcar_production_image_contents.txt'
@@ -106,6 +107,18 @@ function file_from_kind {
             ;;
         initrd-wtd)
             echo 'flatcar_production_image_initrd_contents_wtd.txt'
+            ;;
+        oem-*-old)
+            oemid=${kind}
+            oemid=${oemid#oem-}
+            oemid=${oemid%-old}
+            echo "oem-${oemid}_contents.txt"
+            ;;
+        oem-*-wtd)
+            oemid=${kind}
+            oemid=${oemid#oem-}
+            oemid=${oemid%-wtd}
+            echo "oem-${oemid}_contents_wtd.txt"
             ;;
         *)
             fail "Invalid kind '${kind}' in spec '${spec}', should either be 'old' or 'wtd'"
@@ -251,6 +264,9 @@ function simplified_kind {
             ;;
         initrd-old|initrd-wtd)
             kind="${kind#initrd-}"
+            ;;
+        oem-*-old|oem-*-wtd)
+            kind=${kind##*-}
             ;;
         *)
             fail "Unexpected kind '${kind}' passed through initial checks."
