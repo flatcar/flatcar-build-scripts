@@ -31,6 +31,16 @@ fi
 
 echo "_Changes since **${OLD_FMT}**_"
 
+if [[ ${FETCH} = 1 ]]; then
+  for repo in coreos-overlay portage-stable scripts; do
+    var_name=${repo//-/_}
+    var_name="${var_name^^}_REPO"
+    if [[ -d ${!var_name} ]]; then
+      git -C "${!var_name}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed for ${repo}" ; exit 1 ; }
+    fi
+  done
+fi
+
 for section in security bugfixes changes updates; do
   echo
   case "${section}" in
@@ -61,9 +71,6 @@ for section in security bugfixes changes updates; do
     OLDPREPEND=""
     NEWPREPEND=""
     if [ "${repo}" != "scripts" ]; then
-      if [ "${FETCH}" = 1 ]; then
-        git -C "${SCRIPTS_REPO}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
-      fi
       # Check if we are in the monorepo case where we can use the scripts ref or not
       if [ "$(git -C "${SCRIPTS_REPO}" show "${OLD}":.gitmodules 2>/dev/null)" != "" ]; then
         # Old version is not a monorepo but has submodules.
@@ -88,10 +95,6 @@ for section in security bugfixes changes updates; do
         NEWPREPEND="sdk_container/src/third_party/${repo}/"
         NEWREPOPATH="${SCRIPTS_REPO}"
       fi
-    fi
-    if [ "${FETCH}" = 1 ]; then
-      git -C "${OLDREPOPATH}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
-      git -C "${NEWREPOPATH}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed" ; exit 1 ; }
     fi
     if [ "${section}" = "security" ] && [ "${repo}" = "coreos-overlay" ]; then
       FROM_KERNEL=$(git -C "${OLDREPOPATH}" show "${OLDREF}":"${OLDPREPEND}"sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
