@@ -24,9 +24,9 @@ OLD_FMT=""
 # what we need in the formatted output is (Alpha|Beta|Stable|LTS XXXX.Y.Z).
 # The given code transform the given name into the desired output.
 if [[ $OLD == *"lts"* ]]; then
-  OLD_FMT=$(echo $OLD | tr "-" " " | tr '[:lower:]' '[:upper:]')
+  OLD_FMT=$(echo "${OLD}" | tr "-" " " | tr '[:lower:]' '[:upper:]')
 else
-  OLD_FMT=$(echo $OLD | tr "-" " " | sed 's/./\U&/')
+  OLD_FMT=$(echo "${OLD}" | tr "-" " " | sed 's/./\U&/')
 fi
 
 echo "_Changes since **${OLD_FMT}**_"
