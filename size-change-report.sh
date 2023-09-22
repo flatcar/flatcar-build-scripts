@@ -351,20 +351,30 @@ if any_missing "${wd}/output" "${wd}/detailed_output" "${wd}/for_cache_key_cache
     fi
     # Generate detailed output, without the diff noise and cache keys. File format;
     # <diff sign><hardlink count> <size> <path>
-    xgit diff \
-        --unified="${lineno}" \
-        --no-index \
-        -- \
-        "${wd}/A.7ba.final-form-no-cache-key" "${wd}/B.7ba.final-form-no-cache-key" | \
-        tail --lines +6 >"${wd}/detailed_output"
+    if git diff \
+           --unified="${lineno}" \
+           --no-index \
+           -- \
+           "${wd}/A.7ba.final-form-no-cache-key" "${wd}/B.7ba.final-form-no-cache-key" | \
+            tail --lines +6; then
+        # If both files are the same, diff will show no output. In
+        # such case, print one of the files prepending an empty space
+        # (meaning no change in diffesque).
+        sed -e 's/^/ /' "${wd}/A.7ba.final-form-no-cache-key"
+    fi >"${wd}/detailed_output"
     # Generate detailed output, without the diff noise, size and hardlink info. File format;
     # <diff sign><cache key> <path>
-    xgit diff \
-        --unified="${lineno}" \
-        --no-index \
-        -- \
-        "${wd}/A.7bb.final-form-only-cache-key" "${wd}/B.7bb.final-form-only-cache-key" | \
-        tail --lines +6 >"${wd}/for_cache_key_cache"
+    if git diff \
+           --unified="${lineno}" \
+           --no-index \
+           -- \
+           "${wd}/A.7bb.final-form-only-cache-key" "${wd}/B.7bb.final-form-only-cache-key" | \
+            tail --lines +6; then
+        # If both files are the same, diff will show no output. In
+        # such case, print one of the files prepending an empty space
+        # (meaning no change in diffesque).
+        sed -e 's/^/ /' "${wd}/A.7bb.final-form-only-cache-key"
+    fi >"${wd}/for_cache_key_cache"
 fi
 
 #
@@ -410,7 +420,7 @@ function get_old_cache_key {
 
     gock_cache_key_var_ref="${minus_key_cache[${path}]:-}"
     if [[ -z "${gock_cache_key_var_ref}" ]]; then
-        gock_cache_key_var_ref="${space_key_cache[${path}]}"
+        gock_cache_key_var_ref="${space_key_cache[${path}]:-}"
         if [[ -z "${gock_cache_key_var_ref}" ]]; then
             echo "NO OLD CACHE KEY FOUND FOR '${path}', EXPECT A BAD REPORT!"
         fi
@@ -424,7 +434,7 @@ function get_new_cache_key {
 
     gnck_cache_key_var_ref="${plus_key_cache[${path}]:-}"
     if [[ -z "${gnck_cache_key_var_ref}" ]]; then
-        gnck_cache_key_var_ref="${space_key_cache[${path}]}"
+        gnck_cache_key_var_ref="${space_key_cache[${path}]:-}"
         if [[ -z "${gnck_cache_key_var_ref}" ]]; then
             echo "NO NEW CACHE KEY FOUND FOR '${path}', EXPECT A BAD REPORT!"
         fi
