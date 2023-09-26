@@ -78,9 +78,9 @@ function download {
 }
 
 if [[ "${WITHNEWSTUFF}" = '1' ]]; then
-    if [[ "${FILE}" = flatcar_production_image_contents.txt ]] && \
+    if [[ "${FILE}" = *_contents.txt ]] && \
            [[ "${CALCSIZE}" = 1 ]]; then
-        if download flatcar_production_image_disk_usage.txt; then
+        if download "${FILE%_*}_disk_usage.txt"; then
             NEWCALCSIZE=1
         else
             echo "Disk usage files missing, falling back to the contents files"
@@ -88,7 +88,7 @@ if [[ "${WITHNEWSTUFF}" = '1' ]]; then
     fi
 
     if [[ "${NEWCALCSIZE}" = '0' ]]; then
-        if [[ "${FILE}" = flatcar_production_image_contents.txt ]] || [[ "${FILE}" = flatcar_production_image_initrd_contents.txt ]] || [[ "${FILE}" = flatcar_developer_container_contents.txt ]]; then
+        if [[ "${FILE}" = *_contents.txt ]]; then
             if download "${FILE%.*}_wtd.txt"; then
                 WTD=1
             else
@@ -192,7 +192,7 @@ function no_hardlinks {
 
 if [[ "${NEWCALCSIZE}" = '1' ]]; then
     : # nothing to do, A and B are already prepared
-elif [ "$FILE" = flatcar_production_image_contents.txt ] || [ "$FILE" = flatcar_developer_container_contents.txt ] || [ "$FILE" = flatcar_production_image_initrd_contents.txt ]; then
+elif [[ "$FILE" = *_contents.txt ]]; then
   if [[ "${WTD}" = '0' ]]; then
     # Cut date and time noise away
     sed -i 's/....-..-.. ..:.. //g' "$A" "$B"
