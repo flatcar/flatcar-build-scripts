@@ -54,13 +54,14 @@ PAYLOAD_SIZE=$(stat --format='%s' "${UPDATE_PATH}")
 PAYLOAD_SHA1=$(cat "${UPDATE_PATH}" | openssl dgst -sha1 -binary | base64)
 PAYLOAD_SHA256=$(cat "${UPDATE_PATH}" | openssl dgst -sha256 -binary | base64)
 
-sha256sum "${UPDATE_PATH}" > "${UPDATE_CHECKSUM_PATH}"
+env --chdir "${DATA_DIR}" sha256sum "flatcar_production_update.gz" > "${UPDATE_CHECKSUM_PATH}"
 
 EXTRA_FILES=()
 EXTRA_SUMS=()
 shopt -s nullglob
 for EXTRA_FILE in "${DATA_DIR}/oem-"*.gz "${DATA_DIR}/flatcar-"*.gz; do
-  sha256sum "${EXTRA_FILE}" > "${EXTRA_FILE}.sha256"
+  BASENAME=$(basename "${EXTRA_FILE}")
+  env --chdir "${DATA_DIR}" sha256sum "${BASENAME}" > "${EXTRA_FILE}.sha256"
   EXTRA_FILES+=("${EXTRA_FILE}")
   EXTRA_SUMS+=("${EXTRA_FILE}.sha256")
 done
