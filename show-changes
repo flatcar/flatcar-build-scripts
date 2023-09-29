@@ -12,9 +12,9 @@ if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   exit 1
 fi
 
-: "${SCRIPTS_REPO:='scripts'}"
-: "${COREOS_OVERLAY_REPO:='coreos-overlay'}"
-: "${PORTAGE_STABLE_REPO:='portage-stable'}"
+: "${SCRIPTS_REPO:=scripts}"
+: "${COREOS_OVERLAY_REPO:=coreos-overlay}"
+: "${PORTAGE_STABLE_REPO:=portage-stable}"
 
 OLD="$1"
 NEW="${2-HEAD}"
