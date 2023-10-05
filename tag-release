@@ -92,7 +92,7 @@ for REPO in ${REPOS}; do
         update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
       fi
       create_versionfile "${SDK_VERSION}" "${VERSION}"
-      SIGN=1 update_and_push_version "${TAG}" true
+      SIGN=1 update_and_push_version "${TAG}" "$MAINT-$MAJOR"
     )
   else
     # Tag the other repos
