@@ -18,7 +18,8 @@
 ###
 ### channel: alpha, beta, stable, lts
 ### board: amd64-usr, arm64-usr
-### kind: old, wtd, initrd-old, initrd-wtd, oem-${OEM}-old, oem-${OEM}-wtd
+### kind: old, wtd, initrd-old, initrd-wtd, oem-${OEM}-old, oem-${OEM}-wtd,
+###       base-sysext-${NAME}-old base-sysext-${NAME}-wtd
 ### arch: amd64, arm64
 ###
 ### options:
@@ -94,7 +95,7 @@ done
 function file_from_kind {
     local spec="${1}"; shift
     local kind="${1}"; shift
-    local oemid
+    local oemid name
     case "${kind}" in
         old)
             echo 'flatcar_production_image_contents.txt'
@@ -120,8 +121,20 @@ function file_from_kind {
             oemid=${oemid%-wtd}
             echo "oem-${oemid}_contents_wtd.txt"
             ;;
+        base-sysext-*-old)
+            name=${kind}
+            name=${name#base-sysext-}
+            name=${name%-old}
+            echo "rootfs-included-sysexts/${name}_contents.txt"
+            ;;
+        base-sysext-*-wtd)
+            name=${kind}
+            name=${name#base-sysext-}
+            name=${name%-wtd}
+            echo "rootfs-included-sysexts/${name}_contents_wtd.txt"
+            ;;
         *)
-            fail "Invalid kind '${kind}' in spec '${spec}', should either be 'old' or 'wtd'"
+            fail "Invalid kind '${kind}' in spec '${spec}', see help for possible values"
             ;;
     esac
 }
@@ -265,7 +278,7 @@ function simplified_kind {
         initrd-old|initrd-wtd)
             kind="${kind#initrd-}"
             ;;
-        oem-*-old|oem-*-wtd)
+        oem-*-old|oem-*-wtd|base-sysext-*-old|base-sysext-*-wtd)
             kind=${kind##*-}
             ;;
         *)
