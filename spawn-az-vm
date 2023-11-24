@@ -1,0 +1,141 @@
+#!/bin/bash
+set -euo pipefail
+
+opts=$(getopt --name "$(basename "${0}")" --options 'hi:n:r:l:s:cd' \
+       --longoptions 'help,ignition:,name:,resource-group:,location:,ssh-key:,create-vm,delete-vm' -- "${@}")
+eval set -- "${opts}"
+
+NAME=
+SSH_KEY=
+RESOURCE=
+LOCATION=
+IGNITION_FILE=
+CREATE_VM=
+DELETE_VM=
+
+OFFER="${OFFER:-"flatcar-container-linux-free"}"
+CHANNEL="${CHANNEL:-alpha}"
+SIZE="${SIZE:-Standard_D16ds_v5}"
+# Note use "-" instead ":-" to be able to explicitly clear it
+EXTRA=(${EXTRA-default})
+if [ "${EXTRA[*]}" = "default" ]; then
+  EXTRA=("--ephemeral-os-disk" "true")
+fi
+
+while true; do
+  case "$1" in
+  -h|--help)
+    echo "Usage: ./$(basename "${0}") --name|-n NAME --resource-group|-r RESOURCE_GROUP --location|-l LOCATION [--create-vm|-c --ssh-key|-s PUBKEY_PATH [--ignition|-i FILE]] [--delete-vm|-d] [BRANCHES...]"
+    echo "Creates/reuses a Flatcar Azure VM to build given Flatcar branches"
+    echo
+    echo "This tool uses the 'az' CLI tool and assumes you have logged in and selected a subscription:"
+    echo "  az login"
+    echo "  az account set --subscription ID"
+    echo
+    echo "In a new setup you might first need to run:"
+    echo "  az vm image terms show --publish kinvolk --offer ${OFFER} --plan ${CHANNEL}"
+    echo "  az vm image terms accept --publish kinvolk --offer ${OFFER} --plan ${CHANNEL}"
+    echo
+    echo "The given branches are checked out in /home/core/scripts-BRANCH-RAND and corresponding"
+    echo "Docker Flatcar SDK containers are started to build the amd64 image and the QEMU VM image."
+    echo "This is done through the Azure custom script extension and systemd-run with a unit name"
+    echo "derived from the branch."
+    echo
+    echo "Options:"
+    echo "  --create-vm		This flag is required on the first run for a given VM but causes delays afterwards"
+    echo "  --delete-vm		This flag will delete the given VM and can be specified in combination with --create-vm to force a recreation"
+    echo
+    echo "The env vars SIZE=${SIZE}, EXTRA='${EXTRA[*]}', OFFER=${OFFER} and CHANNEL=${CHANNEL} can be overwritten."
+    echo "Using an ephemeral OS disk gives the fastest IO."
+    echo "For SIZE=Standard_E16bds_v5 you can pass EXTRA='--ephemeral-os-disk true --disk-controller-type NVMe' for using an NVMe interface but the difference is minimal."
+    echo
+    echo "A handy Ignition config could be the following:"
+    echo '{"ignition":{"version":"3.3.0"},"storage":{"files":[{"path":"/etc/ssh/sshd_config.d/10-azure.conf","contents":{"compression":"","source":"data:,Port%20443%0A"}},{"overwrite":true,"path":"/etc/flatcar/update.conf","contents":{"compression":"","source":"data:,SERVER%3Ddisabled%0A"}}]},"systemd":{"units":[{"dropins":[{"contents":"[Socket]\nListenStream=443\n","name":"10-azure.conf"}],"name":"sshd.socket"}]}}'
+    echo "Where you would access SSH via port 443 after opening with az vm open-port --name NAME --resource-group RESOURCE_GROUP --port 443"
+    echo
+    echo "You can access the serial console with:"
+    echo "  az serial-console connect --name NAME --resource-group RESOURCE_GROUP"
+    echo "To exit, type Ctrl + ] followed by 'q'."
+    echo
+    echo "Example:"
+    echo "  ./$(basename "${0}") --name spawn-test --ssh-key ~/.ssh/id_rsa.pub --resource-group ${USER}-spawn --location westeurope --create-vm --ignition MY.ign MYBRANCH"
+    exit 1
+    ;;
+  -i|--ignition)
+    shift
+    IGNITION_FILE="$1"
+    ;;
+  -n|--name)
+    shift
+    NAME="$1"
+    ;;
+  -s|--ssh-key)
+    shift
+    SSH_KEY="$1"
+    ;;
+  -r|--resource-group)
+    shift
+    RESOURCE="$1"
+    ;;
+  -l|--location)
+    shift
+    LOCATION="$1"
+    ;;
+  -c|--create-vm)
+    CREATE_VM=1
+    ;;
+  -d|--delete-vm)
+    DELETE_VM=1
+    ;;
+  --)
+    shift
+    break;;
+  esac
+  shift
+done
+
+if [ "${NAME}" = "" ] || [ "${RESOURCE}" = "" ] || [ "${LOCATION}" = "" ]; then
+  echo "Error: '--name', '--resource-group', '--location' are mandatory" > /dev/stderr ; exit 1
+fi
+
+if [ "${DELETE_VM}" = 1 ]; then
+  az vm delete --name "${NAME}" --resource-group "${RESOURCE}"
+  # Note: This is the default naming scheme and might change, it's better to create
+  # the network resources explicitly, also to set up IPv6
+  az network public-ip delete --resource-group "${RESOURCE}" --name "${NAME}PublicIP"
+  az network nsg delete --resource-group "${RESOURCE}" --name "${NAME}NSG"
+  az network vnet delete --resource-group "${RESOURCE}" --name "${NAME}VNet"
+  echo "The resource group is not deleted because other VMs may have been spawned in it."
+fi
+
+if [ "${CREATE_VM}" = 1 ]; then
+  if [ "${SSH_KEY}" = "" ]; then
+    echo "Error: '--ssh-key' is mandatory" > /dev/stderr ; exit 1
+  fi
+  az group create --name "${RESOURCE}" --location "${LOCATION}"
+  VERSION=$(az vm image list --output json --all --publisher kinvolk --offer flatcar-container-linux-free --sku "${CHANNEL}"-gen2 | jq -r .[].version | sort --numeric-sort | tail -n 1)
+  az vm create --name "${NAME}" --resource-group "${RESOURCE}" --admin-username core --ssh-key-values "${SSH_KEY}" --user-data "${IGNITION_FILE}" --image "kinvolk:flatcar-container-linux-free:${CHANNEL}-gen2:${VERSION}" --size "${SIZE}" --os-disk-size-gb 256 --os-disk-delete-option Delete --nic-delete-option Delete --accelerated-networking true --security-type Standard "${EXTRA[@]}"
+  az vm boot-diagnostics enable --name "${NAME}" --resource-group "${RESOURCE}"
+elif [ "${DELETE_VM}" = 1 ]; then
+  exit 0
+fi
+
+for BRANCH in "$@"; do
+  DERIVED=$(echo "${BRANCH}-${RANDOM}" | sed 's#[/_ ]##g')
+  echo "Derived name: ${DERIVED}"
+  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" https://github.com/flatcar/scripts \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \" time ./build_packages && ./build_image && ./image_to_vm.sh --image_compression_formats=none \" '"
+  # Alternative but quoting issues: az vm extension set --resource-group "${RESOURCE}" --vm-name "${NAME}" --name customScript --publisher Microsoft.Azure.Extensions --settings "{\"commandToExecute\": \"${CMD}\"}"
+  az vm run-command invoke --command-id RunShellScript --resource-group "${RESOURCE}" --name "${NAME}" --scripts "${CMD}"
+  echo "Monitor the build:"
+  echo "  journalctl -u \"${DERIVED}.service\" -f"
+  echo "After the build finished, enter the SDK for iterations:"
+  echo " cd \"/home/core/${DERIVED}\" && ./run_sdk_container -t -n \"${DERIVED}\""
+done
+
+echo "IP address:"
+az vm show --resource-group "${RESOURCE}" --name "${NAME}" --output json --show-details | jq -r .publicIps
+echo "Open a port with:"
+echo "  az vm open-port --resource-group '${RESOURCE}' --name '${NAME}' --port PORT"
+echo "You can access the serial console with:"
+echo "  az serial-console connect --resource-group '${RESOURCE}' --name '${NAME}'"
+echo "To exit the serial console, type Ctrl + ] followed by 'q'."
