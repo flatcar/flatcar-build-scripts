@@ -15,7 +15,7 @@ DELETE_VM=
 
 OFFER="${OFFER:-"flatcar-container-linux-free"}"
 CHANNEL="${CHANNEL:-alpha}"
-SIZE="${SIZE:-Standard_D16ds_v5}"
+SIZE="${SIZE:-Standard_D32ds_v5}"
 # Note use "-" instead ":-" to be able to explicitly clear it
 EXTRA=(${EXTRA-default})
 if [ "${EXTRA[*]}" = "default" ]; then
@@ -58,7 +58,7 @@ while true; do
     echo "To exit, type Ctrl + ] followed by 'q'."
     echo
     echo "Example:"
-    echo "  ./$(basename "${0}") --name spawn-test --ssh-key ~/.ssh/id_rsa.pub --resource-group ${USER}-spawn --location westeurope --create-vm --ignition MY.ign MYBRANCH"
+    echo "  ./$(basename "${0}") --name spawn-test --ssh-key ~/.ssh/id_rsa.pub --resource-group ${USER}-spawn --location westus2 --create-vm --ignition MY.ign MYBRANCH"
     exit 1
     ;;
   -i|--ignition)
