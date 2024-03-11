@@ -13,6 +13,7 @@ IGNITION_FILE=
 CREATE_VM=
 DELETE_VM=
 
+REPO="${REPO:-"flatcar/scripts"}"
 OFFER="${OFFER:-"flatcar-container-linux-free"}"
 CHANNEL="${CHANNEL:-alpha}"
 SIZE="${SIZE:-Standard_D32ds_v5}"
@@ -45,7 +46,7 @@ while true; do
     echo "  --create-vm		This flag is required on the first run for a given VM but causes delays afterwards"
     echo "  --delete-vm		This flag will delete the given VM and can be specified in combination with --create-vm to force a recreation"
     echo
-    echo "The env vars SIZE=${SIZE}, EXTRA='${EXTRA[*]}', OFFER=${OFFER} and CHANNEL=${CHANNEL} can be overwritten."
+    echo "The env vars SIZE=${SIZE}, EXTRA='${EXTRA[*]}', REPO=${REPO}, OFFER=${OFFER} and CHANNEL=${CHANNEL} can be overwritten."
     echo "Using an ephemeral OS disk gives the fastest IO."
     echo "For SIZE=Standard_E16bds_v5 you can pass EXTRA='--ephemeral-os-disk true --disk-controller-type NVMe' for using an NVMe interface but the difference is minimal."
     echo
@@ -123,7 +124,7 @@ fi
 for BRANCH in "$@"; do
   DERIVED=$(echo "${BRANCH}-${RANDOM}" | sed 's#[/_ ]##g')
   echo "Derived name: ${DERIVED}"
-  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" https://github.com/flatcar/scripts \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \" time ./build_packages && ./build_image && ./image_to_vm.sh --image_compression_formats=none \" '"
+  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" \"https://github.com/${REPO}\" \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \" time ./build_packages && ./build_image && ./image_to_vm.sh --image_compression_formats=none \" '"
   # Alternative but quoting issues: az vm extension set --resource-group "${RESOURCE}" --vm-name "${NAME}" --name customScript --publisher Microsoft.Azure.Extensions --settings "{\"commandToExecute\": \"${CMD}\"}"
   az vm run-command invoke --command-id RunShellScript --resource-group "${RESOURCE}" --name "${NAME}" --scripts "${CMD}"
   echo "Monitor the build:"
