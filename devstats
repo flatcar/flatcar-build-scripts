@@ -32,7 +32,7 @@ fi
 
 # Excluded: flatcar/ignition flatcar/afterburn flatcar/ign-converter flatcar/grub
 # (because they are upstream projects)
-REPOS=(flatcar/scripts flatcar/coreos-overlay flatcar/portage-stable flatcar/flatcar-docs
+REPOS=(flatcar/scripts flatcar/coreos-overlay flatcar/portage-stable flatcar/flatcar-website
        flatcar/init flatcar/flatcar-linux-update-operator flatcar/flatcar-build-scripts
        flatcar/mantle flatcar/update-ssh-keys flatcar/container-linux-config-transpiler
        flatcar/locksmith flatcar/bootengine flatcar/baselayout
@@ -43,7 +43,7 @@ REPOS=(flatcar/scripts flatcar/coreos-overlay flatcar/portage-stable flatcar/fla
        flatcar/nss-altfiles flatcar/sysroot-wrappers flatcar/shim
        flatcar/fero flatcar/efunctions flatcar/chromite
        flatcar/flatcar-release-mirror flatcar/sdnotify-proxy
-       flatcar/flog kinvolk/nebraska)
+       flatcar/flog flatcar/ue-rs kinvolk/nebraska)
 
 OUTPUT=""
 
@@ -83,6 +83,9 @@ for REPO in "${REPOS[@]}"; do
     fi
     if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
       REF="origin/master"
+    fi
+    if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
+      REF="origin/trunk"
     fi
     # Trim left space, use space not tabs, and ignore bots
     OUTPUT=$(git -C "${FOLDER}" shortlog -sne --since="${FROM}" --until="${TO}" "${REF}" | sed 's/^[ ]*//g' | tr '\t' ' ' | { grep -v -P '(flatcar-ci|Buildbot|dependabot|jenkins@localhost)' || true ; })
