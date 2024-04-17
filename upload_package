@@ -28,20 +28,21 @@ echo "Environment variable ARCH is specified as ${ARCH}"
 
 COREOS_APP_ID="e96281a6-d1af-4bde-9a0a-97b76e56dc57"
 
-. resty -W "${NEBRASKA_URL}/api" -H "Authorization: Bearer $GITHUB_TOKEN" \
+. resty -W "${NEBRASKA_URL}/api" -f -H "Authorization: Bearer $GITHUB_TOKEN" \
 	-H "Accept: application/json" -H "Content-Type: application/json"
 
 function get_package_id() {
-	local tmpfile="$(mktemp)"
+	local output
 	local package_id
+	local r
 
-	GET /apps/"${COREOS_APP_ID}"/packages >& ${tmpfile}
-	if jq -e 'has("packages")' ${tmpfile} > /dev/null; then
-		package_id=$(cat ${tmpfile} | jq '.packages' | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
+	# Use || here to disable "set -e" as resty does not like it
+	output=$(GET /apps/"${COREOS_APP_ID}"/packages 2>&1) || { r="$?"; echo "${output}" ; return "$r"; }
+	if jq -e 'has("packages")' <(echo "${output}") > /dev/null; then
+		package_id=$(echo "${output}" | jq '.packages' | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
 	else
-		package_id=$(cat ${tmpfile} | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
+		package_id=$(echo "${output}" | jq '.[] | select(.version=="'${VERSION}'" and .arch=='${ARCH_ID}').id')
 	fi
-	rm -f ${tmpfile}
 
 	echo ${package_id}
 }
@@ -88,9 +89,17 @@ else
   exit 1
 fi
 
-if ! PACKAGE_ID=$(get_package_id); then
+set +e
+PACKAGE_ID=$(
+set -e
+get_package_id
+)
+r="$?"
+set -e
+if ! [ "$r" -eq 0 ]; then
 	echo "Failed to get metadata from Nebraska."
 	echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+	echo "Error: ${PACKAGE_ID}"
 	exit 1
 fi
 
@@ -106,6 +115,7 @@ for EXTRA_FILE in "${EXTRA_FILES[@]}"; do
 done
 EMBED_EXTRA_JOINED=$(IFS=, ; echo "${EMBED_EXTRA[*]}")
 if [ -z "${PACKAGE_ID}" ]; then
+    # Using 'if POST' here disables set -e as resty expects
     if ! PACKAGE_JSON=$(POST /apps/"${COREOS_APP_ID}"/packages " \
         {
             \"application_id\": \"${COREOS_APP_ID}\",
@@ -127,6 +137,7 @@ if [ -z "${PACKAGE_ID}" ]; then
         " 2>&1); then
 		echo "Failed to update metadata on Nebraska."
 		echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+		echo "Error: ${PACKAGE_JSON}"
 		exit 1
 	fi
         PACKAGE_ID=$(echo "${PACKAGE_JSON}" | jq .id)
