@@ -105,21 +105,18 @@ sync_git_prepare() {
     local path="${1}"
     local sync=''
     local gentoo_path="${GLOBAL_gentoo_repo}/${path}"
+    local rsync_opts=()
 
     if [[ ! -e "${gentoo_path}" ]]; then
         GLOBAL_obsolete_packages+=("${path}")
         return 0
     fi
 
-    if [[ -d "${path}" ]]; then
-        git rm -r --force --quiet "${path}"
-        sync='x'
-    elif [[ -e "${path}" ]]; then
-        git rm --force --quiet "${path}"
+    if [[ -e "${path}" ]]; then
         sync='x'
     fi
     mkdir --parents "$(dirname ${path})"
-    cp --archive "${gentoo_path}" "$(dirname ${path})"
+    rsync --archive --delete-before "${rsync_opts[@]}" "${gentoo_path}" "$(dirname ${path})"
     git add "${path}"
     if [[ -n "${sync}" ]]; then
         return 1
