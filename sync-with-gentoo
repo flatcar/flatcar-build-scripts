@@ -34,7 +34,7 @@ GLOBAL_gentoo_repo="${GENTOO_REPO:-../gentoo}"
 GLOBAL_amend_mode=''
 
 while true; do
-    case "${1}" in
+    case "${1-}" in
         '--help'|'-h')
             echo "${0} [OPTIONS] CATEGORY[/PACKAGE_NAME] [CATEGORY[/PACKAGE_NAME] […]]"
             echo 'OPTIONS:'
