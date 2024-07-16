@@ -112,6 +112,10 @@ sync_git_prepare() {
         return 0
     fi
 
+    case "${path}" in
+        profiles) rsync_opts+=( --exclude /profiles/repo_name )
+    esac
+
     if [[ -e "${path}" ]]; then
         sync='x'
     fi
