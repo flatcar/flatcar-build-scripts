@@ -36,8 +36,3 @@ export FLATCAR_REPOS=(
   "update_engine"
   "updateservicectl"
 )
-
-export FLATCAR_REPOS_MANIFEST=(
-  "manifest"
-  "manifest-builds"
-)
