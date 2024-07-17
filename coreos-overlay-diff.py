@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Compare two coreos-overlay branches including "
-                                             "dereferened CROS_WORKON_COMMIT branches of "
+                                             "dereferened EGIT_COMMIT branches of "
                                              "repositories located in coreos-overlay/../.")
 
 parser.add_argument("THEIRS", type=str, help="Reference/branch to compare to")
@@ -141,7 +141,7 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
                 if repo in repo_map:
                     repo = repo_map[repo]
             # @TODO: Add DOCKER_GITCOMMIT, COMMIT_ID, CONTAINERD_COMMIT
-            if "CROS_WORKON_COMMIT=" in line:
+            if "EGIT_COMMIT=" in line:
                 if repo == "":
                     raise Exception("No repo seen for: " + line)
                 is_theirs = line.startswith("-")
