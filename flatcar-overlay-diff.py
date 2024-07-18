@@ -8,13 +8,13 @@ import argparse
 import os
 from pathlib import Path
 
-parser = argparse.ArgumentParser(description="Compare two coreos-overlay branches including "
+parser = argparse.ArgumentParser(description="Compare two flatcar-overlay branches including "
                                              "dereferened EGIT_COMMIT branches of "
-                                             "repositories located in coreos-overlay/../.")
+                                             "repositories located in flatcar-overlay/../.")
 
 parser.add_argument("THEIRS", type=str, help="Reference/branch to compare to")
 parser.add_argument("--ours", type=str, help="Our reference (defaults to \"HEAD\")")
-parser.add_argument("--coreos-overlay", type=str, help="Path to coreos-overlay repository (defaults to \".\")")
+parser.add_argument("--flatcar-overlay", "--coreos-overlay", type=str, help="Path to flatcar-overlay repository (defaults to \".\")")
 parser.add_argument("--no-color", dest="no_color", action="store_true", help="Don't pipe diff through colordiff")
 parser.add_argument("--no-commits", dest="no_commits", action="store_true", help="Don't log which commits are missing")
 parser.add_argument("--no-diffs", dest="no_diffs", action="store_true", help="Don't show diffs")
@@ -22,10 +22,10 @@ parser.add_argument("--no-prs", dest="no_prs", action="store_true", help="Don't 
     "(ignoring cherry picks without a merge commit as cherry-pick-for can do)")
 parser.add_argument("--diff-style", choices=["standard", "word-diff", "icdiff", "colordiff", "delta"],
                     help="Instead of standard git diff, use either git --word-diff, git icdiff, or pipe the existing diff through colordiff or delta")
-parser.set_defaults(ours="HEAD", coreos_overlay=".", no_color=False, no_commits=False, no_diffs=False)
+parser.set_defaults(ours="HEAD", flatcar_overlay=".", no_color=False, no_commits=False, no_diffs=False)
 args = parser.parse_args()
 
-base_folder = str(Path(args.coreos_overlay + "/../").resolve()) + "/"
+base_folder = str(Path(args.flatcar_overlay + "/../").resolve()) + "/"
 
 if args.diff_style == "colordiff":
     if not which("colordiff"):
@@ -186,7 +186,7 @@ def display_difference(from_theirs, to_ours, name, recurse=False):
                     ours = ""
 
 
-os.chdir(args.coreos_overlay)
+os.chdir(args.flatcar_overlay)
 display_difference(args.THEIRS, args.ours, os.path.basename(os.path.abspath(".")), recurse=True)
 if warnings:
     print("Encountered some errors when trying to compare recursively, probably due to deleted files:")

@@ -66,8 +66,8 @@ for section in security bugfixes changes updates; do
     NEWREF="${NEW}"
     REPOPATH="${!var_name}"
     if [ "${section}" = "security" ] && [ "${repo}" = "scripts" ]; then
-      FROM_KERNEL=$(git -C "${REPOPATH}" show "${OLDREF}":sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
-      TO_KERNEL=$(git -C "${REPOPATH}" show "${NEWREF}":sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-kernel/ | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      FROM_KERNEL=$({ git -C "${REPOPATH}" show "${OLDREF}":repos/flatcar-overlay/sys-kernel/coreos-kernel/ 2>/dev/null || git -C "${REPOPATH}" show "${OLDREF}":sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-kernel/; } | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
+      TO_KERNEL=$({   git -C "${REPOPATH}" show "${NEWREF}":repos/flatcar-overlay/sys-kernel/coreos-kernel/ 2>/dev/null || git -C "${REPOPATH}" show "${NEWREF}":sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-kernel/; } | grep -m 1 'coreos-kernel-.*\.ebuild' | cut -d - -f 3 | cut -d . -f 1-3)
       if [ "${FROM_KERNEL}" != "${TO_KERNEL}" ]; then
         KERNEL_ENTRIES=$("${SCRIPTFOLDER}"/show-fixed-kernel-cves.py -f "${FROM_KERNEL}" -t "${TO_KERNEL}")
         if [ "${KERNEL_ENTRIES}" != "" ]; then
