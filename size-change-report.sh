@@ -20,6 +20,7 @@
 ### board: amd64-usr, arm64-usr
 ### kind: old, wtd, initrd-old, initrd-wtd, oem-${OEM}-old, oem-${OEM}-wtd,
 ###       base-sysext-${NAME}-old base-sysext-${NAME}-wtd
+###       extra-sysext-${NAME}-old extra-sysext-${NAME}-wtd
 ### arch: amd64, arm64
 ###
 ### options:
@@ -132,6 +133,18 @@ function file_from_kind {
             name=${name#base-sysext-}
             name=${name%-wtd}
             echo "rootfs-included-sysexts/${name}_contents_wtd.txt"
+            ;;
+        extra-sysext-*-old)
+            name=${kind}
+            name=${name#extra-sysext-}
+            name=${name%-old}
+            echo "flatcar-${name}_contents.txt"
+            ;;
+        extra-sysext-*-wtd)
+            name=${kind}
+            name=${name#extra-sysext-}
+            name=${name%-wtd}
+            echo "flatcar-${name}_contents_wtd.txt"
             ;;
         *)
             fail "Invalid kind '${kind}' in spec '${spec}', see help for possible values"
@@ -278,7 +291,7 @@ function simplified_kind {
         initrd-old|initrd-wtd)
             kind="${kind#initrd-}"
             ;;
-        oem-*-old|oem-*-wtd|base-sysext-*-old|base-sysext-*-wtd)
+        oem-*-old|oem-*-wtd|base-sysext-*-old|base-sysext-*-wtd|extra-sysext-*-old|extra-sysext-*-wtd)
             kind=${kind##*-}
             ;;
         *)
