@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Helper to show which Linux kernel CVEs got fixed in a given version
 
