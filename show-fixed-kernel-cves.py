@@ -104,4 +104,4 @@ if not options.to_version:
 
 cves = fixed_linux_cves(Version(options.from_version), Version(options.to_version))
 if len(cves) > 0:
-    print(f"- Linux ({cves})")
+    print(f"{cves}")
