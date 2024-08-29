@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Helper to show which Linux kernel CVEs got fixed in a given version
 
@@ -102,4 +104,4 @@ if not options.to_version:
 
 cves = fixed_linux_cves(Version(options.from_version), Version(options.to_version))
 if len(cves) > 0:
-    print(f"- Linux ({cves})")
+    print(f"{cves}")
