@@ -10,6 +10,7 @@ fi
 
 if [ -z ${GITHUB_TOKEN} ]; then
     echo '$GITHUB_TOKEN needs to be defined'
+    echo 'The token must have GitHub organization and user read permissions'
     exit 1
 fi
 
@@ -99,6 +100,7 @@ set -e
 if ! [ "$r" -eq 0 ]; then
 	echo "Failed to get metadata from Nebraska."
 	echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+	echo "The token must have GitHub organization and user read permissions."
 	echo "Error: ${PACKAGE_ID}"
 	exit 1
 fi
@@ -137,6 +139,7 @@ if [ -z "${PACKAGE_ID}" ]; then
         " 2>&1); then
 		echo "Failed to update metadata on Nebraska."
 		echo "Please make sure that you have configured a valid GITHUB_TOKEN."
+		echo "The token must have GitHub organization and user read permissions."
 		echo "Error: ${PACKAGE_JSON}"
 		exit 1
 	fi
