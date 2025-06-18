@@ -48,7 +48,7 @@ if [ "$(git -C scripts show "origin/${SRC_BUILD_BRANCH}":.gitmodules 2>/dev/null
 fi
 
 for repo in "${FLATCAR_REPOS[@]}"; do
-  # Note: systemd repo has neither flatcar-build-* branches nor flatcar-master
+  # Note: systemd repo has neither flatcar-build-* branches nor main
   # branch. So we should skip systemd completely.
   if [ "${repo}" = "systemd" ]; then
     continue
@@ -64,7 +64,7 @@ for repo in "${FLATCAR_REPOS[@]}"; do
   if [ -n "$(git ls-remote --heads "${HEAD_URL}" "${SRC_BUILD_BRANCH}")" ]; then
     src_branch=${SRC_BUILD_BRANCH}
   else
-    src_branch="flatcar-master"
+    src_branch="main"
   fi
 
   echo "Mirroring a branch ${src_branch} to ${DST_BUILD_BRANCH}"

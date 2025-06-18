@@ -79,9 +79,6 @@ for REPO in "${REPOS[@]}"; do
     fi
     REF="origin/main"
     if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
-      REF="origin/flatcar-master"
-    fi
-    if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then
       REF="origin/master"
     fi
     if ! git -C "${FOLDER}" show "${REF}" > /dev/null 2> /dev/null; then

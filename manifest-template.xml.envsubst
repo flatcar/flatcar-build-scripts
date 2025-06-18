@@ -4,7 +4,7 @@
   <remote fetch=".." name="github"/>
   <remote fetch="ssh://git@github.com" name="private"/>
   
-  <default remote="github" revision="refs/heads/master" sync-j="4"/>
+  <default remote="github" revision="refs/heads/flatcar-master" sync-j="4"/>
   
   <project groups="minilayout" name="appc/acbuild" path="src/third_party/appc-acbuild" revision="refs/heads/master" upstream="refs/heads/master"/>
   <project groups="minilayout" name="appc/spec" path="src/third_party/appc-spec" revision="refs/heads/master" upstream="refs/heads/master"/>

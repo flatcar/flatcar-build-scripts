@@ -36,7 +36,7 @@ function update-branches() {
 
 # Merge each upstream systemd branch to Flatcar branch, e.g. v241-coreos to v241-flatcar.
 # We need to deal with the special case, because of the special case of systemd repo,
-# which has no base point like "flatcar-master" branch. So if upstream has updated
+# which has no base point like "main" branch. So if upstream has updated
 # the v241-coreos branch, that change needs to be also applied to v241-flatcar.
 function update-systemd-branches() {
   local UPSTREAM="${1}"

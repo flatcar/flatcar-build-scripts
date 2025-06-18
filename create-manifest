@@ -12,7 +12,7 @@ if [ "$VERSION" = "" ] || [ "$SDK_VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$
   echo "It creates tags only for the manifest repository. Tags for the repositories scripts, coreos-overlay, and portage-stable should be"
   echo "created first with ./tag-release (which can be rerun on build failures to introduce fixes without changing the manifest)."
   echo "By default the manifest references refs/tags/CHANNEL-VERSION for the repositories scripts, coreos-overlay, and portage-stable"
-  echo "and simply refs/heads/master for the others because their revisions are defined by the CROS_WORKON_COMMIT in the respective ebuild files."
+  echo "and simply refs/heads/flatcar-master for the others because their revisions are defined by the CROS_WORKON_COMMIT in the respective ebuild files."
   echo "Set the environment variables SCRIPTS_REF, OVERLAY_REF, PORTAGE_REF, or DEFAULT_REF to specify any other reference."
   exit 1
 fi
@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPTS_REF="${SCRIPTS_REF-refs/tags/$CHANNEL-$VERSION}"
 OVERLAY_REF="${OVERLAY_REF-refs/tags/$CHANNEL-$VERSION}"
 PORTAGE_REF="${PORTAGE_REF-refs/tags/$CHANNEL-$VERSION}"
-DEFAULT_REF="${DEFAULT_REF-refs/heads/master}"
+DEFAULT_REF="${DEFAULT_REF-refs/heads/flatcar-master}"
 
 echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION SDK_VERSION=$SDK_VERSION"
 echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
@@ -69,7 +69,7 @@ FILENAME="build-$(echo "$VERSION" | cut -d '.' -f 1).xml"
 
 export SCRIPTS_REF OVERLAY_REF PORTAGE_REF DEFAULT_REF
 cat "$SCRIPTFOLDER/manifest-template.xml.envsubst" | envsubst '$SCRIPTS_REF $OVERLAY_REF $PORTAGE_REF $DEFAULT_REF' > "$FILENAME"
-# Note: appc-acbuild, appc-spec, rkt, and systemd always stay at refs/heads/master because they do not have flatcar-master or build branches
+# Note: appc-acbuild, appc-spec, rkt, and systemd always stay at refs/heads/master because they do not have main or build branches
 
 ln -fs "$FILENAME" default.xml
 cp "$FILENAME" release.xml
