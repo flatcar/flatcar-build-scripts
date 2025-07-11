@@ -1,0 +1,44 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ $# -lt 1 || $# -gt 3 || $1 = -h || $1 = --help ]]; then
+    {
+    echo "Usage: $0 NEW-TAG [SAME-CHANNEL-OLD-TAG] [OTHER-CHANNEL-OLD-TAG]"
+    echo
+    echo "Creates a draft flatcar/scripts release in GitHub for the given new"
+    echo "tag. If the old tag(s) are not given, they are automatically detected"
+    echo "using logic from the scripts repo. The GitHub CLI (gh) is required."
+    } >&2
+    exit 1
+fi
+
+NEW=$1
+shift
+
+if [[ $# -eq 0 ]]; then
+    declare _unused
+    declare -a _unused_a show_changes_params var_names=(
+        _unused_a _unused_a
+        _unused_a _unused_a
+        _unused_a show_changes_params
+        _unused
+    )
+
+    # Any board type can be used here as we don't do per-board releases.
+    . "${SCRIPTS_REPO:-scripts}"/ci-automation/image_changes.sh
+    prepare_env_vars_and_params_for_release amd64 "${NEW}" "${var_names[@]}"
+    declare "${show_changes_params[@]}"
+    set -- "${NEW_CHANNEL}-${NEW_CHANNEL_PREV_VERSION}"
+    [[ ${OLD_CHANNEL} != "${NEW_CHANNEL}" ]] && set -- "${@}" "${OLD_CHANNEL}-${OLD_VERSION}"
+fi
+
+BODY=$(mktemp)
+trap 'rm -f -- "${BODY}"' EXIT
+
+for OLD; do
+    "${0%/*}"/show-changes "${OLD}" "${NEW}" >> "${BODY}"
+    shift
+    [[ ${1-} ]] && printf '\n\n' >> "${BODY}"
+done
+
+gh release create --draft --verify-tag --latest --repo https://github.com/flatcar/scripts --title "${NEW}" --notes-file "${BODY}" "${NEW}"
