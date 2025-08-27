@@ -93,6 +93,7 @@ commit_and_show() {
     if [[ -n "$(git status --porcelain | grep -v '^ ')" ]]; then
         git commit \
             --quiet \
+            --signoff \
             "${@}" \
             "${GLOBAL_extra_git_commit_options[@]}"
         GIT_PAGER=cat git show --stat
