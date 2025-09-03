@@ -9,7 +9,6 @@ export FLATCAR_REPOS=(
   "bootengine"
   "chromite"
   "coreos-cloudinit"
-  "coreos-overlay"
   "dev-util"
   "docker"
   "efunctions"
@@ -23,7 +22,6 @@ export FLATCAR_REPOS=(
   "mantle"
   "mayday"
   "nss-altfiles"
-  "portage-stable"
   "rkt"
   "scripts"
   "sdnotify-proxy"
@@ -35,9 +33,4 @@ export FLATCAR_REPOS=(
   "update-ssh-keys"
   "update_engine"
   "updateservicectl"
-)
-
-export FLATCAR_REPOS_MANIFEST=(
-  "manifest"
-  "manifest-builds"
 )
