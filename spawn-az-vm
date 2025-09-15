@@ -51,8 +51,7 @@ while true; do
     echo "For SIZE=Standard_E16bds_v5 you can pass EXTRA='--ephemeral-os-disk true --disk-controller-type NVMe' for using an NVMe interface but the difference is minimal."
     echo
     echo "A handy Ignition config could be the following:"
-    echo '{"ignition":{"version":"3.3.0"},"storage":{"files":[{"path":"/etc/ssh/sshd_config.d/10-azure.conf","contents":{"compression":"","source":"data:,Port%20443%0A"}},{"overwrite":true,"path":"/etc/flatcar/update.conf","contents":{"compression":"","source":"data:,SERVER%3Ddisabled%0A"}}]},"systemd":{"units":[{"dropins":[{"contents":"[Socket]\nListenStream=443\n","name":"10-azure.conf"}],"name":"sshd.socket"}]}}'
-    echo "Where you would access SSH via port 443 after opening with az vm open-port --name NAME --resource-group RESOURCE_GROUP --port 443"
+    echo '{"ignition":{"version":"3.3.0"},"storage":{"files":[{"overwrite":true,"path":"/etc/flatcar/update.conf","contents":{"compression":"","source":"data:,SERVER%3Ddisabled%0A"}}]}}'
     echo
     echo "You can access the serial console with:"
     echo "  az serial-console connect --name NAME --resource-group RESOURCE_GROUP"
@@ -135,8 +134,6 @@ done
 
 echo "IP address:"
 az vm show --resource-group "${RESOURCE}" --name "${NAME}" --output json --show-details | jq -r .publicIps
-echo "Open a port with:"
-echo "  az vm open-port --resource-group '${RESOURCE}' --name '${NAME}' --port PORT"
 echo "You can access the serial console with:"
 echo "  az serial-console connect --resource-group '${RESOURCE}' --name '${NAME}'"
 echo "To exit the serial console, type Ctrl + ] followed by 'q'."
