@@ -50,8 +50,9 @@ while true; do
     echo "Using an ephemeral OS disk gives the fastest IO."
     echo "For SIZE=Standard_E16bds_v5 you can pass EXTRA='--ephemeral-os-disk true --disk-controller-type NVMe' for using an NVMe interface but the difference is minimal."
     echo
-    echo "A handy Ignition config could be the following:"
-    echo '{"ignition":{"version":"3.3.0"},"storage":{"files":[{"overwrite":true,"path":"/etc/flatcar/update.conf","contents":{"compression":"","source":"data:,SERVER%3Ddisabled%0A"}}]}}'
+    echo "A handy Ignition config could be the following (use /tmp for Docker storage, disable auto-updates):"
+    echo '{"ignition":{"version":"3.3.0"},"storage":{"files":[{"overwrite":true,"path":"/etc/docker/daemon.json","contents":{"compression":"","source":"data:;base64,ewogICJleHBlcmltZW50YWwiOiB0cnVlLAogICJkYXRhLXJvb3QiOiAiL3RtcC9kb2NrZXIiCn0K"}},{"overwrite":true,"path":"/etc/flatcar/update.conf","contents":{"compression":"","source":"data:,SERVER%3Ddisabled%0A"}}]}}'
+    echo '(The base64 content is: { "experimental": true, "data-root": "/tmp/docker" }.)'
     echo
     echo "You can access the serial console with:"
     echo "  az serial-console connect --name NAME --resource-group RESOURCE_GROUP"
@@ -123,7 +124,8 @@ fi
 for BRANCH in "$@"; do
   DERIVED=$(echo "${BRANCH}-${RANDOM}" | sed 's#[/_ ]##g')
   echo "Derived name: ${DERIVED}"
-  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" \"https://github.com/${REPO}\" \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \" time ./build_packages && ./build_image prod sysext && ./image_to_vm.sh --image_compression_formats=none \" '"
+  # base64 content: FEATURES="parallel-install -ebuild-locks"
+  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" \"https://github.com/${REPO}\" \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \"echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /etc/portage/make.conf.user && echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /build/amd64-usr/etc/portage/make.conf.user && sed -i 's/CONFIG_DEBUG_INFO_BTF=y/CONFIG_DEBUG_INFO_BTF=n/g' sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-modules/files/commonconfig-* && time ./build_packages && time ./build_image prod sysext && ./image_to_vm.sh --image_compression_formats=none \" '"
   # Alternative but quoting issues: az vm extension set --resource-group "${RESOURCE}" --vm-name "${NAME}" --name customScript --publisher Microsoft.Azure.Extensions --settings "{\"commandToExecute\": \"${CMD}\"}"
   az vm run-command invoke --command-id RunShellScript --resource-group "${RESOURCE}" --name "${NAME}" --scripts "${CMD}"
   echo "Monitor the build:"
