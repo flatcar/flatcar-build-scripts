@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-opts=$(getopt --name "$(basename "${0}")" --options 'hi:n:r:l:s:cd' \
-       --longoptions 'help,ignition:,name:,resource-group:,location:,ssh-key:,create-vm,delete-vm' -- "${@}")
+opts=$(getopt --name "$(basename "${0}")" --options 'hi:n:r:l:s:cdb:' \
+       --longoptions 'help,ignition:,name:,resource-group:,location:,ssh-key:,create-vm,delete-vm,board:' -- "${@}")
 eval set -- "${opts}"
 
 NAME=
@@ -12,6 +12,7 @@ LOCATION=
 IGNITION_FILE=
 CREATE_VM=
 DELETE_VM=
+BOARD=amd64-usr
 
 REPO="${REPO:-"flatcar/scripts"}"
 OFFER="${OFFER:-"flatcar-container-linux-free"}"
@@ -26,7 +27,7 @@ fi
 while true; do
   case "$1" in
   -h|--help)
-    echo "Usage: ./$(basename "${0}") --name|-n NAME --resource-group|-r RESOURCE_GROUP --location|-l LOCATION [--create-vm|-c --ssh-key|-s PUBKEY_PATH [--ignition|-i FILE]] [--delete-vm|-d] [BRANCHES...]"
+    echo "Usage: ./$(basename "${0}") --name|-n NAME --resource-group|-r RESOURCE_GROUP --location|-l LOCATION [--create-vm|-c --ssh-key|-s PUBKEY_PATH [--ignition|-i FILE]] [--delete-vm|-d] [--board BOARD|-b BOARD] [BRANCHES...]"
     echo "Creates/reuses a Flatcar Azure VM to build given Flatcar branches"
     echo
     echo "This tool uses the 'az' CLI tool and assumes you have logged in and selected a subscription:"
@@ -45,6 +46,7 @@ while true; do
     echo "Options:"
     echo "  --create-vm		This flag is required on the first run for a given VM but causes delays afterwards"
     echo "  --delete-vm		This flag will delete the given VM and can be specified in combination with --create-vm to force a recreation"
+    echo "  --board BOARD	This flag specifies the build architecture, defaulting to amd64, so set arm64 to build the arm64 image"
     echo
     echo "The env vars SIZE=${SIZE}, EXTRA='${EXTRA[*]}', REPO=${REPO}, OFFER=${OFFER} and CHANNEL=${CHANNEL} can be overwritten."
     echo "Using an ephemeral OS disk gives the fastest IO."
@@ -88,6 +90,10 @@ while true; do
   -d|--delete-vm)
     DELETE_VM=1
     ;;
+  -b|--board)
+    shift
+    BOARD="$1"-usr
+    ;;
   --)
     shift
     break;;
@@ -117,6 +123,9 @@ if [ "${CREATE_VM}" = 1 ]; then
   VERSION=$(az vm image list --output json --all --publisher kinvolk --offer flatcar-container-linux-free --sku "${CHANNEL}"-gen2 | jq -r .[].version | sort --numeric-sort | tail -n 1)
   az vm create --name "${NAME}" --resource-group "${RESOURCE}" --admin-username core --ssh-key-values "${SSH_KEY}" --user-data "${IGNITION_FILE}" --image "kinvolk:flatcar-container-linux-free:${CHANNEL}-gen2:${VERSION}" --size "${SIZE}" --os-disk-size-gb 256 --os-disk-delete-option Delete --nic-delete-option Delete --accelerated-networking true --security-type Standard "${EXTRA[@]}"
   az vm boot-diagnostics enable --name "${NAME}" --resource-group "${RESOURCE}"
+  # Set up qemu-user binary translation for arm64 builds
+  # base64 content: :qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/opt/bin/qemu-aarch64-static:F
+  az vm run-command invoke --command-id RunShellScript --resource-group "${RESOURCE}" --name "${NAME}" --scripts "sudo wget --quiet -O /opt/bin/qemu-aarch64-static https://origin.release.flatcar-linux.net/mirror/coreos/qemu-aarch64-static && sudo chmod +x /opt/bin/qemu-aarch64-static && echo OnFlbXUtYWFyY2g2NDpNOjpceDdmRUxGXHgwMlx4MDFceDAxXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMlx4MDBceGI3XHgwMDpceGZmXHhmZlx4ZmZceGZmXHhmZlx4ZmZceGZmXHgwMFx4ZmZceGZmXHhmZlx4ZmZceGZmXHhmZlx4ZmZceGZmXHhmZVx4ZmZceGZmXHhmZjovb3B0L2Jpbi9xZW11LWFhcmNoNjQtc3RhdGljOkYK | base64 -d | sudo tee /etc/binfmt.d/qemu-aarch64-static.conf && sudo systemctl restart systemd-binfmt.service"
 elif [ "${DELETE_VM}" = 1 ]; then
   exit 0
 fi
@@ -125,7 +134,7 @@ for BRANCH in "$@"; do
   DERIVED=$(echo "${BRANCH}-${RANDOM}" | sed 's#[/_ ]##g')
   echo "Derived name: ${DERIVED}"
   # base64 content: FEATURES="parallel-install -ebuild-locks"
-  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" \"https://github.com/${REPO}\" \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \"echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /etc/portage/make.conf.user && echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /build/amd64-usr/etc/portage/make.conf.user && sed -i 's/CONFIG_DEBUG_INFO_BTF=y/CONFIG_DEBUG_INFO_BTF=n/g' sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-modules/files/commonconfig-* && time ./build_packages && time ./build_image prod sysext && ./image_to_vm.sh --image_compression_formats=none \" '"
+  CMD="sudo systemd-run --uid=core --gid=core --unit='${DERIVED}' --working-directory='/home/core/' sh -c 'git clone --branch \"${BRANCH}\" \"https://github.com/${REPO}\" \"${DERIVED}\" && cd \"${DERIVED}\" && ./run_sdk_container -n \"${DERIVED}\" sh -c \"echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /etc/portage/make.conf.user && echo RkVBVFVSRVM9InBhcmFsbGVsLWluc3RhbGwgLWVidWlsZC1sb2NrcyIK | base64 -d | sudo tee /build/${BOARD}/etc/portage/make.conf.user && sed -i 's/CONFIG_DEBUG_INFO_BTF=y/CONFIG_DEBUG_INFO_BTF=n/g' sdk_container/src/third_party/coreos-overlay/sys-kernel/coreos-modules/files/commonconfig-* && time ./build_packages --board ${BOARD} && time ./build_image --board ${BOARD} prod sysext && ./image_to_vm.sh --board ${BOARD} --image_compression_formats=none \" '"
   # Alternative but quoting issues: az vm extension set --resource-group "${RESOURCE}" --vm-name "${NAME}" --name customScript --publisher Microsoft.Azure.Extensions --settings "{\"commandToExecute\": \"${CMD}\"}"
   az vm run-command invoke --command-id RunShellScript --resource-group "${RESOURCE}" --name "${NAME}" --scripts "${CMD}"
   echo "Monitor the build:"
