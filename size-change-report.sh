@@ -110,6 +110,9 @@ function file_from_kind {
         initrd-wtd)
             echo 'flatcar_production_image_initrd_contents_wtd.txt'
             ;;
+        realinitrd-wtd)
+            echo 'flatcar_production_image_realinitrd_contents_wtd.txt'
+            ;;
         oem-*-old)
             oemid=${kind}
             oemid=${oemid#oem-}
