@@ -294,6 +294,9 @@ function simplified_kind {
         initrd-old|initrd-wtd)
             kind="${kind#initrd-}"
             ;;
+        realinitrd-wtd)
+            kind="${kind#realinitrd-}"
+            ;;
         oem-*-old|oem-*-wtd|base-sysext-*-old|base-sysext-*-wtd|extra-sysext-*-old|extra-sysext-*-wtd)
             kind=${kind##*-}
             ;;
