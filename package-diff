@@ -18,6 +18,7 @@ if [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Alternatively, set CALCSIZE=1 to sum up the file sizes from flatcar_production_image_contents.txt (/boot and /usr, excluding symlinks and directories)"
   echo "  If WITHNEWSTUFF is set to 1 (the default), this will try fetching the disk usage reports from the server instead"
   echo "  If this fails, falls back to the old method."
+  echo "Set CUTSIGKEYPATH=1 to avoid producing diffs on /tmp/tmp.XXXXXXX paths in kernel config."
   exit 1
 fi
 
@@ -36,6 +37,7 @@ VERSION_A="$1"
 VERSION_B="$2"
 FILESONLY="${FILESONLY-0}"
 CUTKERNEL="${CUTKERNEL-0}"
+CUTSIGKEYPATH=${CUTSIGKEYPATH-0}
 CALCSIZE="${CALCSIZE-0}"
 WITHNEWSTUFF="${WITHNEWSTUFF-1}"
 WTD=0
@@ -226,6 +228,10 @@ elif [[ "$FILE" = *_contents.txt ]]; then
     echo "Boot: $((${B_BOOT}/1024/1024)) MiB (must be < 60 MiB or updates will break)" >> "$B"
     echo "Usr: $((${B_USR}/1024/1024)) MiB (inc. sparse files)" >> "$B"
     echo "Rootfs: $((${B_ROOT}/1024/1024)) MiB" >> "$B"
+  fi
+elif [[ ${FILE} = flatcar_production_image_kernel_config.txt ]]; then
+  if [ "${CUTSIGKEYPATH}" = 1 ]; then
+    sed -i -E 's#(CONFIG_MODULE_SIG_KEY="/tmp/).*(/certs/modules\.pem")#\1tmp.XXX\2#' "${A}" "${B}"
   fi
 fi
 
