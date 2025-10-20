@@ -4,16 +4,15 @@ SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
 
 if [ "${SDK_VERSION}" = "" ] || [ "$VERSION" = "" ] || [ "$CHANNEL" = "" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "$0:"
-  echo "This script will create and push release tags in the repositories scripts, coreos-overlay, and portage-stable"
-  echo "checked out in $SCRIPTFOLDER/../(scripts|coreos-overlay|portage-stable). The repositories will be cloned from"
-  echo "github.com/flatcar/(scripts|coreos-overlay|portage-stable).git if they do not exist (origin in an existing"
-  echo "repository must point there or pushing fails or does some unwanted action)."
+  echo "This script will create and push release tags in the scripts repository checked out in"
+  echo "$SCRIPTFOLDER/../scripts. The repository will be cloned from github.com/flatcar/scripts.git"
+  echo "if it does not exist (origin in an existing repository must point there or pushing fails or does some unwanted action)."
   echo "Set VERSION, SDK_VERSION, and CHANNEL as environment variables, e.g., VERSION=2345.3.0 SDK_VERSION=2345.0.0 CHANNEL=stable $0"
   echo
   echo "It creates tags in the form CHANNEL-VERSION for each of the three repositories. By default it fetches origin and"
   echo "creates a tag from origin/flatcar-MAJOR for each of the three repositories, with MAJOR being the first part of"
   echo "VERSION when splitting by dots."
-  echo "Set the environment variables SCRIPTS_REF, OVERLAY_REF, PORTAGE_REF to specify a specific commit for the tag."
+  echo "Set the environment variable SCRIPTS_REF to specify a specific commit for the tag."
   exit 1
 fi
 
@@ -21,64 +20,42 @@ set -euo pipefail
 
 MAJOR="${VERSION%%.*}"
 
-MAINT="flatcar"
-if [ "$CHANNEL" = lts ] && [ "$MAJOR" = "2605" ]; then
-  MAINT="flatcar-lts"
-fi
-
-SCRIPTS_REF="${SCRIPTS_REF-origin/$MAINT-$MAJOR}"
-OVERLAY_REF="${OVERLAY_REF-origin/$MAINT-$MAJOR}"
-PORTAGE_REF="${PORTAGE_REF-origin/$MAINT-$MAJOR}"
+SCRIPTS_REF="${SCRIPTS_REF-origin/flatcar-$MAJOR}"
 
 echo "Running with CHANNEL=$CHANNEL VERSION=$VERSION MAJOR=$MAJOR"
-echo "SCRIPTS_REF=$SCRIPTS_REF OVERLAY_REF=$OVERLAY_REF PORTAGE_REF=$PORTAGE_REF"
+echo "SCRIPTS_REF=$SCRIPTS_REF"
 
-REPOS="coreos-overlay portage-stable scripts"
-# scripts should be last as it binds the other two together as submodules, if they exist
-
-# Check if we are in the monorepo, in this case only work on "scripts"
-cd "$SCRIPTFOLDER/.."
-if [ ! -d "scripts" ]; then
-  git clone --recurse-submodules 'git@github.com:flatcar/scripts.git'
-fi
-git -C scripts fetch origin
-if [ "$(git -C scripts show "origin/$MAINT-$MAJOR":.gitmodules 2>/dev/null)" = "" ]; then
-  REPOS="scripts"
-fi
-
+REPOS="scripts"
 
 for REPO in ${REPOS}; do
   echo "Preparing ${REPO}"
   cd "$SCRIPTFOLDER/.."
   if [ ! -d "${REPO}" ]; then
-    git clone --recurse-submodules "git@github.com:flatcar/${REPO}.git"
+    git clone "git@github.com:flatcar/${REPO}.git"
   fi
   cd "${REPO}"
   git fetch origin
   TAG="${CHANNEL}-${VERSION}"
   [ "${REPO}" = "scripts" ] && REF="${SCRIPTS_REF}"
-  [ "${REPO}" = "coreos-overlay" ] && REF="${OVERLAY_REF}"
-  [ "${REPO}" = "portage-stable" ] && REF="${PORTAGE_REF}"
   echo "Deleting tag ${TAG} if it exists in ${REPO}"
   git tag -d "$TAG" || echo "No local tags deleted"
   git push --delete origin "$TAG" || echo "No remote tags deleted"
-  # Check if we have to update the submodules while tagging
   if [ "${REPO}" = "scripts" ]; then
-    if [ "${REF}" != "origin/$MAINT-$MAJOR" ]; then
-      echo "Error: can't find the scripts branch to push the updated submodule to, you can't overwrite SCRIPTS_REF anymore"
+    if [ "${REF}" != "origin/flatcar-$MAJOR" ]; then
+      echo "Error: can't find the scripts branch, you can't overwrite SCRIPTS_REF anymore"
       exit 1
     fi
 
-    echo "Checking out scripts branch $MAINT-$MAJOR to update submodules and create version file"
-    git checkout --force --recurse-submodules -B "$MAINT-$MAJOR" "origin/$MAINT-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
+    echo "Checking out scripts branch flatcar-$MAJOR to create version file"
+    git checkout --force -B "flatcar-$MAJOR" "origin/flatcar-$MAJOR" || { echo "Error: could not checkout the right branch in your 'scripts' repo" ; exit 1 ; }
 
     if [ "$(git status --porcelain --untracked-files=no)" != "" ]; then
       echo "Error: uncommitted changes found which will be lost"
       exit 1
     fi
 
-    git pull --recurse-submodules || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
-    if [ "$(git log HEAD.."origin/$MAINT-$MAJOR")" != "" ] || ! git diff --quiet "origin/$MAINT-$MAJOR" ; then
+    git pull || { echo "Error: could not pull the branch in your 'scripts' repo" ; exit 1 ; }
+    if [ "$(git log HEAD.."origin/flatcar-$MAJOR")" != "" ] || ! git diff --quiet "origin/flatcar-$MAJOR" ; then
       echo "Error: local changes in your 'scripts' repo"
       exit 1
     fi
@@ -86,13 +63,8 @@ for REPO in ${REPOS}; do
     (
       source sdk_lib/sdk_container_common.sh
       source ci-automation/ci_automation_common.sh
-      if [ "$(git show "origin/$MAINT-$MAJOR":.gitmodules 2>/dev/null)" != "" ]; then
-        cd "sdk_container/src/third_party/coreos-overlay"; git fetch --all --tags --force; cd -
-        cd "sdk_container/src/third_party/portage-stable"; git fetch --all --tags --force; cd -
-        update_submodules "${OVERLAY_REF}" "${PORTAGE_REF}"
-      fi
       create_versionfile "${SDK_VERSION}" "${VERSION}"
-      SIGN=1 update_and_push_version "${TAG}" "$MAINT-$MAJOR"
+      SIGN=1 update_and_push_version "${TAG}" "flatcar-$MAJOR"
     )
   else
     # Tag the other repos
