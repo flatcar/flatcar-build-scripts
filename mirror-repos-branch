@@ -30,7 +30,7 @@ fi
 . ./lib/common.sh
 
 if [ "${ALL_REPOS}" = "0" ]; then
-  FLATCAR_REPOS=("coreos-overlay" "portage-stable" "scripts")
+  FLATCAR_REPOS=("scripts")
 fi
 
 REPOS_DIR=$(mktemp -d "${PWD}/.mirror-repos.XXXXXXXXXX")
@@ -40,12 +40,6 @@ echo "Created new directory $REPOS_DIR"
 trap '{ export EXT="$?"; rm -rf "${REPOS_DIR}" && exit "${EXT}"; }' EXIT
 
 cd "${REPOS_DIR}"
-
-# Check if we are in the monorepo case
-[ ! -d scripts ] && git clone --recurse-submodules "git@github.com:flatcar/scripts"
-if [ "$(git -C scripts show "origin/${SRC_BUILD_BRANCH}":.gitmodules 2>/dev/null)" = "" ]; then
-  FLATCAR_REPOS=("scripts")
-fi
 
 for repo in "${FLATCAR_REPOS[@]}"; do
   # Note: systemd repo has neither flatcar-build-* branches nor flatcar-master

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Used for syncing with gentoo. Needs to be called from the
-# toplevel-directory of portage-stable. Expects the actual gentoo repo
+# toplevel-directory of gentoo-subset. Expects the actual gentoo repo
 # to be either in ../gentoo or ../../gentoo.
 #
 # Example invocations:
