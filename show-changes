@@ -114,14 +114,17 @@ for section in security bugfixes changes updates; do
       LAST_SUBMOD_REF=$(git -C "${SCRIPTS_REPO}" ls-tree "${LAST_SUBMOD_SCRIPTS_REF}" "sdk_container/src/third_party/${repo}" | awk '{print $3 }')
       # The patch that removed the submodule overrides README has the merge history
       FIRST_MONO_REF=$(git -C "${SCRIPTS_REPO}" rev-list -n 1 "${NEWREF}" -- sdk_container/git-override/README.md)
-      git -C "${OLDREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLDREF}..${LAST_SUBMOD_REF}" -- "${OLDPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
-      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${FIRST_MONO_REF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+      git -C "${OLDREPOPATH}" difftool --no-prompt --extcmd='sh -c "if [ \"$LOCAL\" = /dev/null ] ; then cat \"$REMOTE\" ; fi" --' "${OLDREF}..${LAST_SUBMOD_REF}" -- "${OLDPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "if [ \"$LOCAL\" = /dev/null ] ; then cat \"$REMOTE\" ; fi" --' "${FIRST_MONO_REF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
     else
-      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "cat \"$REMOTE\"" --' "${OLDREF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
+      git -C "${NEWREPOPATH}" difftool --no-prompt --extcmd='sh -c "if [ \"$LOCAL\" = /dev/null ] ; then cat \"$REMOTE\" ; fi" --' "${OLDREF}..${NEWREF}" -- "${NEWPREPEND}changelog/${section}/" | sort || { echo "Error: git difftool failed" ; exit 1 ; }
     fi
     # The -x 'sh -c "cat \"$REMOTE\"" --' command assumes that new changes have their own changelog files,
-    # and thus ignores the LOCAL file (which is the empty /dev/null) and prints out the REMOTE completly.
+    # and thus ignores the LOCAL file (which is the empty /dev/null for a new changelog entry)
+    # and prints out the REMOTE completly.
     # If an existing file got changed, we assume that this is just a correction for the old change but
-    # shouldn't be included in the release notes again.
+    # shouldn't be included in the release notes again when it was already included, thus we skip the
+    # case where LOCAL is not /dev/null. The corrected file will be shown in a diff when the old version
+    # doesn't have it, e.g., when a large major jump happens for LTS or Stable, it will show up corrected.
   done
 done
