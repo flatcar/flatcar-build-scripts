@@ -3,8 +3,8 @@
 set -e
 shopt -s expand_aliases
 
-if [ $# -ne 4 ] && [ $# -ne 5 ]; then
-    echo "usage: ${0} DATA_DIR NEBRASKA_URL ORIGIN_SSH_URL VERSION"
+if [ $# -ne 3 ]; then
+    echo "usage: ${0} DATA_DIR NEBRASKA_URL VERSION"
     exit 1
 fi
 
@@ -16,13 +16,13 @@ fi
 
 DATA_DIR="$1"
 NEBRASKA_URL="$2"
-ORIGIN_SSH_URL="$3"
-VERSION="$4"
+VERSION="$3"
+RCLONE_CONFIGURATION_FILE="${RCLONE_CONFIGURATION_FILE:-${HOME}/.config/rclone/rclone.conf}"
 
 # Used for debugging/testing of the staging server:
 NOUPLOAD="${NOUPLOAD-}"
 # touch /tmp/flatcar_production_update.gz
-# NOUPLOAD=1 ./upload_package /tmp https://staging.updateservice.flatcar-linux.net notused 9.9.9
+# NOUPLOAD=1 ./upload_package /tmp https://staging.updateservice.flatcar-linux.net 9.9.9
 
 ARCH="${ARCH:-amd64-usr}"
 echo "Environment variable ARCH is specified as ${ARCH}"
@@ -71,13 +71,17 @@ shopt -u nullglob
 
 echo "Copying update payload to update server"
 
-SERVER_UPDATE_DIR="/var/www/origin.release.flatcar-linux.net/update/${ARCH}/${VERSION}/"
-if [ "${NOUPLOAD}" = "" ]; then
-  ssh "core@${ORIGIN_SSH_URL}" mkdir -p "${SERVER_UPDATE_DIR}"
-  scp "${UPDATE_PATH}" "${UPDATE_CHECKSUM_PATH}" "${EXTRA_FILES[@]}" "${EXTRA_SUMS[@]}" "core@${ORIGIN_SSH_URL}:${SERVER_UPDATE_DIR}"
-else
-  echo "NOUPLOAD set, skipping upload to origin server"
-fi
+docker run --rm \
+  --volume "${DATA_DIR}:/opt/data:ro" \
+  --volume "${RCLONE_CONFIGURATION_FILE}:/opt/rclone.conf:ro" \
+  docker.io/rclone/rclone:1.71.1 \
+    --config "/opt/rclone.conf" \
+    sync \
+    ${NOUPLOAD:+--dry-run} \
+    --progress \
+    --include "*.{gz,sha256}" \
+    "/opt/data/" \
+    "r2:flatcar/update/${ARCH}/${VERSION}/"
 
 # Nebraska's arch enum values:
 # https://github.com/kinvolk/nebraska/blob/953a1e672f42dea4530161a31756db239e0bb8aa/pkg/api/arch.go#L9
