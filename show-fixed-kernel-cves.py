@@ -26,13 +26,13 @@ class Version:
 
         s = v.split(".")
         if len(s) != 3:
-            self.major = "-1"
-            self.minor = "-1"
-            self.patch = "-1"
+            self.major = int("-1")
+            self.minor = int("-1")
+            self.patch = int("-1")
         else:
-            self.major = s[0]
-            self.minor = s[1]
-            self.patch = s[2]
+            self.major = int(s[0])
+            self.minor = int(s[1])
+            self.patch = int(s[2].split("-")[0])
 
     def __str__(self):
         return f"{self.major}.{self.minor}.{self.patch}"
