@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
 FETCH="${FETCH-1}"
 SCRIPTFOLDER="$(dirname "$(readlink -f "$0")")"
@@ -34,7 +34,7 @@ if [[ ${FETCH} = 1 ]]; then
     var_name=${repo//-/_}
     var_name="${var_name^^}_REPO"
     if [[ -d ${!var_name} ]]; then
-      git -C "${!var_name}" fetch -t -f 2> /dev/null > /dev/null || { echo "Error: git fetch -t -f failed for ${repo}" ; exit 1 ; }
+      git -C "${!var_name}" fetch -t -f || { echo "Error: git fetch -t -f failed for ${repo}" ; exit 1 ; }
     fi
   done
 fi
