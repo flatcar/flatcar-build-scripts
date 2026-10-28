@@ -90,7 +90,7 @@ def fixed_linux_cves(f, t):
             cve = item.title.split(":")[0]
             if not cve.startswith("CVE"):
                 continue
-            links += [f"[{cve}](https://nvd.nist.gov/vuln/detail/{cve})"]
+            links += [f"[{cve}](https://www.cve.org/CVERecord/?id={cve})"]
     return ", ".join(links)
 
 parser = OptionParser()
